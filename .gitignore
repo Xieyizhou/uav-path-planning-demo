@@ -1,0 +1,58 @@
+# macOS
+.DS_Store
+
+# Python
+.venv/
+__pycache__/
+.pycache_compile/
+.pytest_cache/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE/editor
+.idea/
+.vscode/
+
+# Environment / secrets
+.env
+.env.*
+
+# PX4/Gazebo and raw telemetry logs generated during local runs
+data/logs/
+data/px4_console_logs/
+data/raw_logs/*
+!data/raw_logs/README.md
+*.ulg
+*.tlog
+*.bag
+*.log
+*.csv.tmp
+
+# Generated analysis outputs. Curated samples live in data/sample_outputs/.
+outputs/*
+!outputs/README.md
+
+# Local simulator/cache/temp output when generated inside this repo
+build/
+logs/
+tmp/
+temp/
+.tmp/
+
+# Large local media should be attached to releases, not committed.
+release_assets/*
+!release_assets/.gitignore
+!release_assets/README.md
+!release_assets/raw/
+!release_assets/raw/.gitkeep
+!release_assets/source/
+!release_assets/source/.gitkeep
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+
+# Legacy / local learning scripts not part of the main UAV pipeline
+legacy/learning_scripts/

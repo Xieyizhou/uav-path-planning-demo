@@ -1,0 +1,279 @@
+# Experiment Protocol
+
+This document contains the detailed commands and conventions for the four staged PX4 SITL A* substation experiments.
+
+## Experiment Stages
+
+- `01_static_astar`: Experiment 1, baseline A* route planning and flight without perception response.
+- `02_perception_response`: perception_response stage. This is the second experiment; the current risk action is `slow_down` and local replanning is disabled.
+- `03_replan_log_only`: Experiment 3, local replanning evaluated in log-only mode; the active route should not be replaced.
+- `04_active_replan`: Experiment 4, local replanning enabled and allowed to replace the remaining outbound route.
+- `comparisons`: intentional cross-stage comparison outputs.
+- `archive`: old, failed, or deprecated outputs that should not be mixed with active experiment results.
+
+`scripts/flight/experiments/common.sh` is shared runner infrastructure, not an experiment stage.
+
+Do not compare outputs from different stages by default. Use the comparison tool for intentional cross-stage evaluation.
+
+## Output Folder Conventions
+
+```text
+outputs/
+  README.md
+  01_static_astar/
+    runs/
+    previews/
+    summaries/
+  02_perception_response/
+    runs/
+    previews/
+    summaries/
+  03_replan_log_only/
+    runs/
+    previews/
+    summaries/
+  04_active_replan/
+    runs/
+    previews/
+    summaries/
+  comparisons/
+  archive/
+```
+
+Per-run analysis outputs should be written as:
+
+```text
+outputs/<stage>/runs/as_YYYYMMDD_HHMMSS/
+```
+
+Summary outputs are written as:
+
+```text
+outputs/<stage>/summaries/experiment_summary.csv
+outputs/<stage>/summaries/experiment_summary.md
+outputs/<stage>/summaries/experiment_evaluation.csv
+outputs/<stage>/summaries/experiment_evaluation.md
+```
+
+Comparison outputs are written under:
+
+```text
+outputs/comparisons/landmark/
+outputs/comparisons/aggregate/
+```
+
+## Setup
+
+Install dependencies once:
+
+```bash
+cd ~/projects/drone-ai
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Start PX4 SITL with the substation world in a separate terminal:
+
+```bash
+cd ~/projects/drone-ai
+bash scripts/flight/start_px4_substation.sh
+```
+
+Run experiment commands from the project root:
+
+```bash
+cd ~/projects/drone-ai
+source .venv/bin/activate
+```
+
+## Runner Commands
+
+Use the formal runner scripts when possible:
+
+```bash
+bash scripts/flight/experiments/run_static_astar.sh
+bash scripts/flight/experiments/run_perception_response.sh
+bash scripts/flight/experiments/run_replan_log_only.sh
+bash scripts/flight/experiments/run_active_replan.sh
+```
+
+Expected four-experiment runner mapping:
+
+- Experiment 1: `run_static_astar.sh` -> `outputs/01_static_astar/`
+- Experiment 2: `run_perception_response.sh` -> `outputs/02_perception_response/`
+- Experiment 3: `run_replan_log_only.sh` -> `outputs/03_replan_log_only/`
+- Experiment 4: `run_active_replan.sh` -> `outputs/04_active_replan/`
+
+Each runner flies, analyzes the latest log, marks the latest staged output, and regenerates per-stage summaries. Individual runners do not refresh landmark or aggregate cross-stage comparisons.
+
+## Manual Preview, Fly, Analyze
+
+Static A* preview:
+
+```bash
+python main.py astar preview \
+  --obstacle-config config/substation_obstacles.json \
+  --return-home \
+  --altitude 1.5
+```
+
+Static A* flight:
+
+```bash
+python main.py astar fly \
+  --obstacle-config config/substation_obstacles.json \
+  --return-home \
+  --altitude 1.5 \
+  --max-speed 0.8 \
+  --return-speed-scale 0.7 \
+  --waypoint-acceptance 0.3
+```
+
+Analyze the latest A* log:
+
+```bash
+python main.py astar analyze \
+  --obstacle-config config/substation_obstacles.json
+```
+
+Generate deeper diagnostic plots only when needed:
+
+```bash
+python scripts/analysis/analyze_astar_log.py \
+  --obstacle-config config/substation_obstacles.json \
+  --debug-plots
+```
+
+## Manual Perception-Response Runs
+
+Diagnostic perception `log_only` run, not a separate formal experiment:
+
+```bash
+python main.py astar fly \
+  --obstacle-config config/substation_obstacles.json \
+  --return-home \
+  --altitude 1.5 \
+  --max-speed 1.0 \
+  --return-speed-scale 0.8 \
+  --waypoint-acceptance 0.4 \
+  --enable-perception \
+  --risk-action log_only
+```
+
+Manual `perception_response` run using the current `slow_down` action:
+
+```bash
+python main.py astar fly \
+  --obstacle-config config/substation_obstacles.json \
+  --return-home \
+  --altitude 1.5 \
+  --max-speed 1.0 \
+  --return-speed-scale 0.8 \
+  --waypoint-acceptance 0.4 \
+  --enable-perception \
+  --risk-action slow_down
+```
+
+## Manual Local Replan Runs
+
+Offline local replan preview:
+
+```bash
+python scripts/analysis/test_local_replan.py
+```
+
+Expected preview output:
+
+```text
+outputs/03_replan_log_only/previews/replan_preview/
+```
+
+Experiment 3 log-only local replan flight:
+
+```bash
+python main.py astar fly \
+  --obstacle-config config/substation_obstacles.json \
+  --return-home \
+  --altitude 1.5 \
+  --max-speed 1.0 \
+  --return-speed-scale 0.8 \
+  --waypoint-acceptance 0.4 \
+  --enable-perception \
+  --risk-action log_only \
+  --enable-local-replan \
+  --replan-mode log_only \
+  --replan-risk-level danger
+```
+
+Experiment 4 active local replan flight:
+
+```bash
+python main.py astar fly \
+  --obstacle-config config/substation_obstacles.json \
+  --return-home \
+  --altitude 1.5 \
+  --max-speed 1.0 \
+  --return-speed-scale 0.8 \
+  --waypoint-acceptance 0.4 \
+  --enable-perception \
+  --risk-action log_only \
+  --enable-local-replan \
+  --replan-mode active \
+  --replan-risk-level danger
+```
+
+## Summary Commands
+
+Regenerate all stage summaries and evaluation tables:
+
+```bash
+python scripts/analysis/summarize_experiments.py
+```
+
+This scans only staged run folders:
+
+```text
+outputs/<stage>/runs/as_*/
+```
+
+## Comparison Commands
+
+Generate both cross-stage comparison layers:
+
+```bash
+python scripts/analysis/compare_experiment_sets.py --mode both --min-runs-per-stage 1
+```
+
+Generate only the landmark README/demo comparison:
+
+```bash
+python scripts/analysis/compare_experiment_sets.py --mode landmark
+```
+
+Generate only the repeated-trial aggregate comparison:
+
+```bash
+python scripts/analysis/compare_experiment_sets.py --mode aggregate --min-runs-per-stage 3
+```
+
+The landmark comparison looks for selected marker files inside staged run folders and writes outputs only when all four required stages have at least one selected analyzed run. If any required stage is missing, the command prints a skip message, lists missing stages, writes `comparison_status.md`, and leaves existing landmark summaries unchanged.
+
+The aggregate comparison uses all valid analyzed runs inside the four staged run folders. If a stage has fewer than the requested run count, the command prints a warning and records the incomplete stage set in `aggregate_summary.md`.
+
+```text
+outputs/comparisons/landmark/comparison_summary.csv
+outputs/comparisons/landmark/comparison_summary.md
+outputs/comparisons/landmark/selected_runs.json
+outputs/comparisons/landmark/comparison_status.md
+outputs/comparisons/aggregate/aggregate_summary.csv
+outputs/comparisons/aggregate/aggregate_summary.md
+outputs/comparisons/aggregate/included_runs.csv
+```
+
+## Interpretation Guide
+
+- Baseline vs `slow_down`: check whether slow-down reduces safety-buffer violations or improves minimum obstacle distance, and compare the added flight time.
+- Diagnostic perception `log_only` runs can still be useful controls, but they are not one of the four formal experiment stages.
+- Log-only replan vs active replan: log-only shows whether a local replan would have been available; active replan shows whether the route was actually replaced.
+- Active replan success requires more than a successful A* attempt. Check active route replacement count, final status, safety-buffer violations, and obstacle clearance.
+- Missing metrics should remain blank or `unavailable`; do not invent values when logs or manifest fields are absent.
