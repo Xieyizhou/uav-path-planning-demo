@@ -7,7 +7,7 @@ Resume-oriented PX4/Gazebo project demonstrating a staged UAV autonomy pipeline:
 
 The repository is intentionally scoped as a clean portfolio demo. It preserves the current simulation behavior and curated result artifacts while keeping raw logs, generated runs, and deeper active-replanning research out of the GitHub history.
 
-**A short demo video is available in the [`v0.1-resume-demo`](https://github.com/Xieyizhou/uav-path-planning-replanning/releases/tag/v0.1-resume-demo) release.**
+**A short demo video is available in the [`v0.1-resume-demo`](https://github.com/Xieyizhou/uav-path-planning-demo/releases/tag/v0.1-demo) release.**
 
 ## 2-Minute Overview
 
