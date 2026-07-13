@@ -15,6 +15,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.planner.obstacle_config import build_obstacle_map, get_resolution_altitude, load_obstacle_config
 from src.logging.collision_checks import obstacle_collision_report
+from src.logging.active_replan_validation import validate_active_replan_rows
 from src.logging.log_io import (
     display_path,
     prepare_dataframe,
@@ -318,6 +319,15 @@ def compute_warnings(df, obstacles, resolution_m, obstacle_config_path, collisio
                 continue
             num = wp_number(name)
             route = str(row["route_direction"]) if "route_direction" in target_changes.columns else ""
+            # A phase boundary may intentionally restore an original waypoint
+            # target (for example RWP06 -> WP09 at goal_hover). Target sequence
+            # validation is route-scoped, so do not compare numbering across a
+            # route-direction boundary.
+            if previous_route is not None and route != previous_route:
+                previous_name = name
+                previous_num = num
+                previous_route = route
+                continue
             if previous_num is not None and num is not None:
                 expected_delta = -1 if route == "return" or previous_route == "return" else 1
                 if num - previous_num not in {expected_delta, 0} and abs(num - previous_num) > 1:
@@ -817,6 +827,9 @@ def main():
         perception_summary_func=perception_summary,
         replan_summary_func=replan_summary,
         active_replan_route_replacement_summary_func=active_replan_route_replacement_summary,
+        active_replan_target_validation_func=lambda frame: validate_active_replan_rows(
+            frame.to_dict(orient="records")
+        ),
         infer_return_home_enabled_func=infer_return_home_enabled,
         waypoint_reached_threshold_m=WAYPOINT_REACHED_THRESHOLD_M,
     )
@@ -837,6 +850,9 @@ def main():
         perception_summary_func=perception_summary,
         replan_summary_func=replan_summary,
         active_replan_route_replacement_summary_func=active_replan_route_replacement_summary,
+        active_replan_target_validation_func=lambda frame: validate_active_replan_rows(
+            frame.to_dict(orient="records")
+        ),
     )
     metadata_path = write_run_metadata(
         output_dir=output_dir,
