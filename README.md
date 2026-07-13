@@ -138,3 +138,7 @@ Active replanning robustness, dynamic obstacle handling, and waypoint target-swi
 - Perception is rule-based/simulated rather than camera-based deep perception.
 - Active local replanning is demonstrated but still needs deeper target-switching validation.
 - Current results are from one simulated substation-style environment.
+
+## Continuous Integration
+
+Offline regression tests and syntax checks run automatically on pushes to `main` and pull requests targeting `main`. PX4/Gazebo flight validation remains a separate local process; a passing CI run does not represent hardware-flight validation.
