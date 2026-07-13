@@ -111,6 +111,30 @@ def markdown_active_replan_route_replacement_summary(summary):
     return lines
 
 
+def markdown_active_replan_target_validation(validation):
+    """Render the machine-readable target-switching result for summary.md."""
+    sequence = validation.get("post_replan_unique_target_sequence") or []
+    def yes_no(value):
+        if value is None:
+            return "N/A"
+        return "yes" if value else "no"
+
+    return [
+        "## Active Replan Target Validation",
+        "",
+        f"- pre_replan_target_name: {validation.get('pre_replan_target_name') or 'N/A'}",
+        f"- first_replanned_target_name: {validation.get('first_replanned_target_name') or 'N/A'}",
+        f"- first_replanned_target_elapsed_s: {format_value(validation.get('first_replanned_target_elapsed_s'), ' s')}",
+        f"- post_replan_unique_target_sequence: {', '.join(sequence) if sequence else 'N/A'}",
+        f"- post_replan_old_wp_target_count: {validation.get('post_replan_old_wp_target_count', 0)}",
+        f"- rwp_sequence_contiguous: {yes_no(validation.get('rwp_sequence_contiguous'))}",
+        f"- original_goal_reached: {yes_no(validation.get('original_goal_reached'))}",
+        f"- mission_completed: {yes_no(validation.get('mission_completed'))}",
+        f"- active_replan_target_switching_status: {validation['active_replan_target_switching_status']}",
+        f"- active_replan_target_switching_notes: {validation['active_replan_target_switching_notes']}",
+    ]
+
+
 def generated_file_description(path):
     descriptions = {
         "summary.md": "human-readable A* analysis report.",
@@ -259,6 +283,7 @@ def write_summary(
     perception_summary_func,
     replan_summary_func,
     active_replan_route_replacement_summary_func,
+    active_replan_target_validation_func,
     infer_return_home_enabled_func,
     waypoint_reached_threshold_m,
 ):
@@ -269,6 +294,7 @@ def write_summary(
     perception = perception_summary_func(df)
     replan = replan_summary_func(df)
     active_replan_replacement = active_replan_route_replacement_summary_func(df)
+    active_replan_validation = active_replan_target_validation_func(df)
     has_obstacle_validation_plot = any(
         path.name == "traj_with_obstacles.png" for path in core_generated_files
     )
@@ -337,6 +363,8 @@ def write_summary(
         "",
         *markdown_active_replan_route_replacement_summary(active_replan_replacement),
         "",
+        *markdown_active_replan_target_validation(active_replan_validation),
+        "",
         *markdown_perception_summary(perception),
         "",
         "## Warnings",
@@ -383,11 +411,13 @@ def write_manifest(
     perception_summary_func,
     replan_summary_func,
     active_replan_route_replacement_summary_func,
+    active_replan_target_validation_func,
 ):
     manifest_path = output_dir / "manifest.json"
     perception = perception_summary_func(df)
     replan = replan_summary_func(df)
     active_replan_replacement = active_replan_route_replacement_summary_func(df)
+    active_replan_validation = active_replan_target_validation_func(df)
     manifest = {
         "run_id": run_id,
         "source_log": str(display_path(log_path)),
@@ -442,6 +472,7 @@ def write_manifest(
         },
         "replan_summary": replan,
         "active_replan_route_replacement_summary": active_replan_replacement,
+        "active_replan_target_validation": active_replan_validation,
         "perception_summary": perception,
         "core_generated_files": [str(display_path(path)) for path in core_generated_files],
         "debug_generated_files": [str(display_path(path)) for path in debug_generated_files],
