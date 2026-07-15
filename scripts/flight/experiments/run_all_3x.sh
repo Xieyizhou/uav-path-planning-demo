@@ -82,7 +82,7 @@ fi
 
 echo ""
 echo "Generating landmark and aggregate cross-stage comparisons..."
-python scripts/analysis/compare_experiment_sets.py --mode both --min-runs-per-stage "${TRIALS}"
+python main.py report compare --mode both --min-runs-per-stage "${TRIALS}"
 COMPARE_STATUS=$?
 if [ "${COMPARE_STATUS}" -ne 0 ]; then
   echo "FAILED: cross-stage comparison generation exited with code ${COMPARE_STATUS}"

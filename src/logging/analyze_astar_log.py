@@ -1,4 +1,5 @@
 import argparse
+import json
 import math
 import os
 import re
@@ -619,6 +620,17 @@ def cleanup_old_astar_outputs():
     return []
 
 
+def load_run_status(log_path, warnings):
+    status_path = log_path.with_suffix(".status.json")
+    if not status_path.exists():
+        return None
+    try:
+        return json.loads(status_path.read_text())
+    except (OSError, json.JSONDecodeError) as error:
+        warnings.append(f"Could not read run status {display_path(status_path)}: {error}")
+        return None
+
+
 def main():
     args = parse_args()
     ensure_output_tree()
@@ -627,7 +639,7 @@ def main():
     except FileNotFoundError as error:
         print(f"Analysis skipped: {error}")
         print("Run an A* flight first, or pass --log path/to/astar_*.csv.")
-        return
+        return 2
 
     run_id = run_id_from_log(log_path)
     df = prepare_dataframe(log_path)
@@ -637,6 +649,17 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     created_at_utc = datetime.now(timezone.utc).isoformat()
     initial_warnings = []
+    run_status = load_run_status(log_path, initial_warnings)
+    if run_status and (
+        run_status.get("status") != "completed"
+        or run_status.get("landing_confirmed") is not True
+    ):
+        initial_warnings.append(
+            "Flight runtime status is not a confirmed completion: "
+            f"status={run_status.get('status')}, "
+            f"landing_confirmed={run_status.get('landing_confirmed')}, "
+            f"message={run_status.get('message') or 'N/A'}"
+        )
     obstacle_config_path, obstacle_config, obstacles, obstacle_resolution_m, obstacle_map = load_analysis_obstacles(
         args, df, initial_warnings
     )
@@ -832,6 +855,7 @@ def main():
         ),
         infer_return_home_enabled_func=infer_return_home_enabled,
         waypoint_reached_threshold_m=WAYPOINT_REACHED_THRESHOLD_M,
+        run_status=run_status,
     )
     manifest_path = write_manifest(
         output_dir=output_dir,
@@ -853,6 +877,7 @@ def main():
         active_replan_target_validation_func=lambda frame: validate_active_replan_rows(
             frame.to_dict(orient="records")
         ),
+        run_status=run_status,
     )
     metadata_path = write_run_metadata(
         output_dir=output_dir,
@@ -864,6 +889,7 @@ def main():
         df=df,
         infer_local_replan_enabled_func=infer_local_replan_enabled,
         infer_return_home_enabled_func=infer_return_home_enabled,
+        run_status=run_status,
     )
     generated_files = [
         *core_generated_files,
@@ -883,11 +909,12 @@ def main():
 
     if used_newest_log:
         print("\nTo analyze this exact run again:")
-        command = f"python scripts/analysis/analyze_astar_log.py --log {display_path(log_path)}"
+        command = f"python main.py report analyze --log {display_path(log_path)}"
         if obstacle_config_path:
             command += f" --obstacle-config {display_path(obstacle_config_path)}"
         print(command)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

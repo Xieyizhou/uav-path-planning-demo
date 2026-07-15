@@ -35,8 +35,17 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q src scripts main.py
 
-      - name: Check experiment shell syntax
-        run: bash -n scripts/flight/experiments/common.sh
+      - name: Check all flight shell syntax
+        run: |
+          for script in scripts/flight/*.sh scripts/flight/experiments/*.sh; do
+            bash -n "$script"
+          done
 
-      - name: Check launcher shell syntax
-        run: bash -n scripts/flight/start_px4_substation.sh
+      - name: Run offline A-star preview smoke test
+        env:
+          MPLBACKEND: Agg
+        run: >-
+          python main.py astar preview
+          --obstacle-config config/substation_obstacles.json
+          --return-home
+          --altitude 1.5

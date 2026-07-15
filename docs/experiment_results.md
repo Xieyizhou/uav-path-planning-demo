@@ -44,7 +44,7 @@ Older or diagnostic perception `log_only` runs may exist in local outputs, but t
 Generate the aggregate repeated-trial summary after staged runs are available:
 
 ```bash
-python scripts/analysis/compare_experiment_sets.py --mode aggregate --min-runs-per-stage 3
+python main.py report compare --mode aggregate --min-runs-per-stage 3
 ```
 
 This creates:

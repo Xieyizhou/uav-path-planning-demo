@@ -1,1 +1,1 @@
-"""Reusable implementation modules for the UAV path-planning demo."""
+"""Reusable implementation modules for the drone-ai project."""

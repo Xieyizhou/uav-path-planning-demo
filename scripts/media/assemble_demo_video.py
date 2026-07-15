@@ -270,7 +270,7 @@ def concat_segments(segments: list[Path], output: Path, build_dir: Path) -> None
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Assemble a 35-45 second UAV demonstration video."
+        description="Assemble a 35-45 second UAV portfolio demo video."
     )
     parser.add_argument(
         "--path-preview",

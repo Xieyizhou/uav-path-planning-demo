@@ -2,7 +2,7 @@
 
 The flight loop samples MAVSDK telemetry, perception state, and local replan
 state. This module defines the stable CSV schema and converts runtime objects
-into rows for later analysis by `scripts/analysis/analyze_astar_log.py` and the
+into rows for later analysis by `python main.py report analyze` and the
 stage summary tools.
 """
 

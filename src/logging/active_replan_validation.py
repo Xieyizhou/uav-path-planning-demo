@@ -61,17 +61,13 @@ def validate_active_replan_rows(
     horizontal_acceptance_m=DEFAULT_HORIZONTAL_ACCEPTANCE_M,
     vertical_acceptance_m=DEFAULT_VERTICAL_ACCEPTANCE_M,
 ):
-    """Derive target-switching evidence from telemetry rows.
-
-    The original goal is considered reached only when the runtime entered
-    ``goal_hover`` (proving the outbound route coroutine returned), its target
-    coordinates match the final outbound RWP target, and a goal-hover sample is
-    within both the runtime's horizontal and vertical acceptance thresholds.
-    Mission completion separately requires a ``landed`` phase and no sampled
-    ``landing_after_error`` or ``landing_after_danger`` phase.
-    """
+    """Derive target-switching evidence from telemetry rows."""
     rows = list(rows)
-    modes = {_text(row.get("replan_mode")).lower() for row in rows if _text(row.get("replan_mode"))}
+    modes = {
+        _text(row.get("replan_mode")).lower()
+        for row in rows
+        if _text(row.get("replan_mode"))
+    }
     if not modes:
         return _result("UNAVAILABLE", ["replan_mode telemetry is missing"])
     if "active" not in modes:
@@ -102,9 +98,6 @@ def validate_active_replan_rows(
                 pre_target = name
                 break
 
-    # The replacement event row represents the pre-switch target when it is a
-    # WP. Exclude that one row from the old-target rule, then inspect only the
-    # remaining outbound phase (never return-home rows).
     post_rows = [
         row
         for row in rows[transition_index + 1 :]
@@ -121,7 +114,8 @@ def validate_active_replan_rows(
     rwp_sequence = [name for name in collapsed_names if RWP_PATTERN.fullmatch(name)]
     rwp_numbers = [int(RWP_PATTERN.fullmatch(name).group(1)) for name in rwp_sequence]
     rwp_contiguous = bool(rwp_numbers) and all(
-        current == previous + 1 for previous, current in zip(rwp_numbers, rwp_numbers[1:])
+        current == previous + 1
+        for previous, current in zip(rwp_numbers, rwp_numbers[1:])
     )
     old_wp_count = sum(
         1 for row in post_rows if WP_PATTERN.fullmatch(_text(row.get("target_name")))
@@ -137,7 +131,9 @@ def validate_active_replan_rows(
 
     goal_hover_rows = [row for row in rows if _text(row.get("phase")).lower() == "goal_hover"]
     goal_row = goal_hover_rows[0] if goal_hover_rows else None
-    final_rwp_rows = [row for row in post_rows if RWP_PATTERN.fullmatch(_text(row.get("target_name")))]
+    final_rwp_rows = [
+        row for row in post_rows if RWP_PATTERN.fullmatch(_text(row.get("target_name")))
+    ]
     final_rwp_row = final_rwp_rows[-1] if final_rwp_rows else None
     goal_coordinates_available = bool(goal_row and final_rwp_row) and all(
         _number(goal_row.get(key)) is not None
@@ -176,7 +172,9 @@ def validate_active_replan_rows(
 
     violations = []
     if old_wp_count:
-        violations.append(f"{old_wp_count} old WP telemetry sample(s) reappeared during outbound flight")
+        violations.append(
+            f"{old_wp_count} old WP telemetry sample(s) reappeared during outbound flight"
+        )
     if rwp_sequence and not rwp_contiguous:
         violations.append("distinct outbound RWP sequence is not contiguous")
     if goal_coordinates_available and goal_error_available and not original_goal_reached:
@@ -194,7 +192,9 @@ def validate_active_replan_rows(
         notes = ["required evidence missing: " + ", ".join(dict.fromkeys(unavailable))]
     else:
         status = "PASS"
-        notes = ["outbound target replacement, RWP continuity, original goal, and mission completion verified"]
+        notes = [
+            "outbound target replacement, RWP continuity, original goal, and mission completion verified"
+        ]
 
     return {
         "pre_replan_target_name": pre_target or None,
@@ -203,7 +203,11 @@ def validate_active_replan_rows(
         "post_replan_unique_target_sequence": rwp_sequence,
         "post_replan_old_wp_target_count": old_wp_count,
         "rwp_sequence_contiguous": rwp_contiguous if rwp_sequence else None,
-        "original_goal_reached": original_goal_reached if goal_coordinates_available and goal_error_available else None,
+        "original_goal_reached": (
+            original_goal_reached
+            if goal_coordinates_available and goal_error_available
+            else None
+        ),
         "mission_completed": mission_completed,
         "active_replan_target_switching_status": status,
         "active_replan_target_switching_notes": "; ".join(notes),

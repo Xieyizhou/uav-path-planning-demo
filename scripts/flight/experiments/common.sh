@@ -11,7 +11,8 @@ if [[ -z "${PROJECT_ROOT+x}" ]]; then
   COMMON_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
   PROJECT_ROOT="$(cd -- "$COMMON_DIR/../../.." && pwd)"
 fi
-OBSTACLE_CONFIG="${OBSTACLE_CONFIG:-config/substation_obstacles.json}"
+RUNTIME_DIR="$PROJECT_ROOT/.runtime"
+FLIGHT_PID_FILE="$RUNTIME_DIR/flight.pid"
 
 cd "$PROJECT_ROOT"
 
@@ -22,31 +23,92 @@ else
   exit 1
 fi
 
+if [[ -z "${OBSTACLE_CONFIG:-}" ]]; then
+  MAP_SWITCHER="$PROJECT_ROOT/scripts/maps/switch_map.py"
+  if [[ -f "$MAP_SWITCHER" ]]; then
+    OBSTACLE_CONFIG="$(python "$MAP_SWITCHER" current --field obstacle_config)"
+  else
+    OBSTACLE_CONFIG="config/substation_obstacles.json"
+  fi
+fi
+echo "Experiment obstacle map: $OBSTACLE_CONFIG"
+
 cleanup_mavsdk() {
-  # Stale mavsdk_server or flight-script processes can keep UDP ports busy and
-  # make the next PX4 connection ambiguous, so each formal run starts clean.
-  echo "Cleaning old MAVSDK / flight processes..."
-  pkill -f "mavsdk_server" || true
-  pkill -f "scripts/flight/fly_astar_path.py" || true
-  sleep 2
+  mkdir -p "$RUNTIME_DIR"
+  if [[ ! -f "$FLIGHT_PID_FILE" ]]; then
+    echo "No project-managed stale flight process found."
+    return 0
+  fi
+
+  local pid
+  pid="$(cat "$FLIGHT_PID_FILE")"
+  if [[ ! "$pid" =~ ^[0-9]+$ ]]; then
+    echo "WARNING: removing invalid project flight PID file."
+    rm -f "$FLIGHT_PID_FILE"
+    return 0
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    echo "Removing stale project flight PID file for exited PID $pid."
+    rm -f "$FLIGHT_PID_FILE"
+    return 0
+  fi
+
+  local command_text
+  command_text="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  if [[ "$command_text" != *"main.py astar fly"* && "$command_text" != *"fly_astar_path.py"* && "$command_text" != *"scripts/flight/run_task.py"* ]]; then
+    echo "WARNING: PID $pid no longer looks like this project's flight process; not terminating it."
+    rm -f "$FLIGHT_PID_FILE"
+    return 0
+  fi
+
+  echo "Stopping project-managed stale flight PID $pid..."
+  kill -TERM "$pid" 2>/dev/null || true
+  for _ in {1..20}; do
+    if ! kill -0 "$pid" 2>/dev/null; then
+      break
+    fi
+    sleep 0.1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    echo "ERROR: project-managed flight PID $pid did not stop; refusing to kill it forcefully."
+    return 1
+  fi
+  rm -f "$FLIGHT_PID_FILE"
+}
+
+run_managed_flight() {
+  mkdir -p "$RUNTIME_DIR"
+  "$@" &
+  local flight_pid=$!
+  printf '%s\n' "$flight_pid" > "$FLIGHT_PID_FILE"
+  echo "Project-managed flight PID: $flight_pid"
+
+  local status
+  if wait "$flight_pid"; then
+    status=0
+  else
+    status=$?
+  fi
+  rm -f "$FLIGHT_PID_FILE"
+  return "$status"
 }
 
 analyze_latest() {
   echo
   echo "Analyzing latest A* log..."
-  python main.py astar analyze --obstacle-config "$OBSTACLE_CONFIG"
+  python main.py report analyze --obstacle-config "$OBSTACLE_CONFIG"
 }
 
 update_stage_reports() {
   echo
   echo "Updating per-stage experiment summaries..."
-  python scripts/analysis/summarize_experiments.py
+  python main.py report summarize
 }
 
 update_cross_stage_comparison() {
   echo
   echo "Updating landmark cross-stage comparison..."
-  python scripts/analysis/compare_experiment_sets.py
+  python main.py report compare
 }
 
 latest_output_dir() {

@@ -18,20 +18,8 @@ echo "===================================="
 
 cleanup_mavsdk
 
-python main.py astar fly \
-  --obstacle-config "$OBSTACLE_CONFIG" \
-  --return-home \
-  --altitude 1.5 \
-  --max-speed 0.5 \
-  --return-speed-scale 0.6 \
-  --waypoint-acceptance 0.4 \
-  --enable-perception \
-  --risk-action log_only \
-  --enable-local-replan \
-  --replan-mode active \
-  --replan-risk-level danger \
-  --replan-cooldown 5.0 \
-  --max-replans 3
+run_managed_flight python scripts/flight/run_task.py run fly_with_replan -- \
+  --obstacle-config "$OBSTACLE_CONFIG"
 
 analyze_latest
 mark_latest_output "active_replan" "KEEP_LANDMARK__active_local_replan.txt"

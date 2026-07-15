@@ -76,7 +76,7 @@ pip install -r requirements.txt
 Start PX4 SITL with the substation world in a separate terminal:
 
 ```bash
-bash scripts/flight/start_px4_substation.sh
+python main.py map start
 ```
 
 Activate the project virtual environment before running experiment commands:
@@ -87,13 +87,13 @@ source .venv/bin/activate
 
 ## Runner Commands
 
-Use the formal runner scripts when possible:
+Use the unified experiment commands:
 
 ```bash
-bash scripts/flight/experiments/run_static_astar.sh
-bash scripts/flight/experiments/run_perception_response.sh
-bash scripts/flight/experiments/run_replan_log_only.sh
-bash scripts/flight/experiments/run_active_replan.sh
+python main.py experiment run static
+python main.py experiment run perception
+python main.py experiment run replan-log
+python main.py experiment run active-replan
 ```
 
 Expected four-experiment runner mapping:
@@ -131,14 +131,14 @@ python main.py astar fly \
 Analyze the latest A* log:
 
 ```bash
-python main.py astar analyze \
+python main.py report analyze \
   --obstacle-config config/substation_obstacles.json
 ```
 
 Generate deeper diagnostic plots only when needed:
 
 ```bash
-python scripts/analysis/analyze_astar_log.py \
+python main.py report analyze \
   --obstacle-config config/substation_obstacles.json \
   --debug-plots
 ```
@@ -178,7 +178,7 @@ python main.py astar fly \
 Offline local replan preview:
 
 ```bash
-python scripts/analysis/test_local_replan.py
+python main.py check replan
 ```
 
 Expected preview output:
@@ -226,7 +226,7 @@ python main.py astar fly \
 Regenerate all stage summaries and evaluation tables:
 
 ```bash
-python scripts/analysis/summarize_experiments.py
+python main.py report summarize
 ```
 
 This scans only staged run folders:
@@ -240,19 +240,19 @@ outputs/<stage>/runs/as_*/
 Generate both cross-stage comparison layers:
 
 ```bash
-python scripts/analysis/compare_experiment_sets.py --mode both --min-runs-per-stage 1
+python main.py report compare --mode both --min-runs-per-stage 1
 ```
 
 Generate only the landmark README/demo comparison:
 
 ```bash
-python scripts/analysis/compare_experiment_sets.py --mode landmark
+python main.py report compare --mode landmark
 ```
 
 Generate only the repeated-trial aggregate comparison:
 
 ```bash
-python scripts/analysis/compare_experiment_sets.py --mode aggregate --min-runs-per-stage 3
+python main.py report compare --mode aggregate --min-runs-per-stage 3
 ```
 
 The landmark comparison looks for selected marker files inside staged run folders and writes outputs only when all four required stages have at least one selected analyzed run. If any required stage is missing, the command prints a skip message, lists missing stages, writes `comparison_status.md`, and leaves existing landmark summaries unchanged.
@@ -303,7 +303,7 @@ successful local A* attempt or route replacement does not prove goal arrival.
 After analyzing the trials, validate the latest three eligible runs with:
 
 ```bash
-python scripts/analysis/validate_active_replan_runs.py --latest 3
+python main.py report validate-active --latest 3
 ```
 
 Three real active-replan PX4/Gazebo runs from the current implementation must

@@ -16,4 +16,4 @@ New analysis outputs are stage-scoped. Do not write new `as_*` run folders direc
 ## Comparisons
 
 - Cross-stage comparison outputs: `outputs/comparisons`
-- Use `python scripts/analysis/compare_experiment_sets.py` for intentional landmark comparisons across stages.
+- Use `python main.py report compare` for intentional landmark comparisons across stages.

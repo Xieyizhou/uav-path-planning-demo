@@ -1,16 +1,10 @@
-import importlib.util
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from src.logging.active_replan_validation import validate_active_replan_rows
-
-
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "analysis" / "validate_active_replan_runs.py"
-SPEC = importlib.util.spec_from_file_location("validate_active_replan_runs", SCRIPT_PATH)
-BATCH = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(BATCH)
+from src.logging import validate_active_replan_runs as batch_validation
 
 
 def telemetry_rows(sequence=("RWP03", "RWP03", "RWP04", "RWP05")):
@@ -163,7 +157,7 @@ class ActiveReplanBatchTests(unittest.TestCase):
             root = Path(directory)
             for index in range(3):
                 self.write_run(root, f"as_20260713_00000{index}", "PASS")
-            selected, eligible, _, passed = BATCH.evaluate_latest_runs(root, 3)
+            selected, eligible, _, passed = batch_validation.evaluate_latest_runs(root, 3)
             self.assertEqual(len(selected), 3)
             self.assertEqual(len(eligible), 3)
             self.assertTrue(passed)
@@ -173,14 +167,14 @@ class ActiveReplanBatchTests(unittest.TestCase):
             root = Path(directory)
             for index, status in enumerate(("PASS", "FAIL", "PASS")):
                 self.write_run(root, f"as_20260713_00000{index}", status)
-            self.assertFalse(BATCH.evaluate_latest_runs(root, 3)[3])
+            self.assertFalse(batch_validation.evaluate_latest_runs(root, 3)[3])
 
     def test_fewer_than_three_eligible_runs_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for index in range(2):
                 self.write_run(root, f"as_20260713_00000{index}", "PASS")
-            selected, eligible, _, passed = BATCH.evaluate_latest_runs(root, 3)
+            selected, eligible, _, passed = batch_validation.evaluate_latest_runs(root, 3)
             self.assertEqual(len(selected), 2)
             self.assertEqual(len(eligible), 2)
             self.assertFalse(passed)

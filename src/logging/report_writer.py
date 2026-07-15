@@ -114,6 +114,7 @@ def markdown_active_replan_route_replacement_summary(summary):
 def markdown_active_replan_target_validation(validation):
     """Render the machine-readable target-switching result for summary.md."""
     sequence = validation.get("post_replan_unique_target_sequence") or []
+
     def yes_no(value):
         if value is None:
             return "N/A"
@@ -245,6 +246,7 @@ def write_run_metadata(
     df,
     infer_local_replan_enabled_func,
     infer_return_home_enabled_func,
+    run_status=None,
 ):
     metadata = {
         "run_name": run_id,
@@ -259,6 +261,7 @@ def write_run_metadata(
         "altitude_m": safe_max(df, "altitude_m"),
         "max_speed_m_s": safe_max(df, "max_speed_m_s"),
         "return_home": infer_return_home_enabled_func(df),
+        "runtime_status": run_status,
     }
     metadata_path = output_dir / "run_metadata.json"
     metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
@@ -286,6 +289,7 @@ def write_summary(
     active_replan_target_validation_func,
     infer_return_home_enabled_func,
     waypoint_reached_threshold_m,
+    run_status=None,
 ):
     summary_path = output_dir / "summary.md"
     planner_name = first_value(df, "planner_name") or "N/A"
@@ -306,6 +310,9 @@ def write_summary(
         f"- Source log: `{display_path(log_path)}`",
         f"- Run ID: `{run_id}`",
         f"- Analysis timestamp: `{created_at_utc}`",
+        f"- Runtime status: `{run_status.get('status') if run_status else 'legacy/unavailable'}`",
+        f"- Landing confirmed: `{run_status.get('landing_confirmed') if run_status else 'legacy/unavailable'}`",
+        f"- Runtime message: `{run_status.get('message') or 'N/A' if run_status else 'N/A'}`",
         f"- Map name: `{map_name}`",
         f"- Planner name: `{planner_name}`",
         f"- Row count: {len(df)}",
@@ -412,6 +419,7 @@ def write_manifest(
     replan_summary_func,
     active_replan_route_replacement_summary_func,
     active_replan_target_validation_func,
+    run_status=None,
 ):
     manifest_path = output_dir / "manifest.json"
     perception = perception_summary_func(df)
@@ -423,6 +431,7 @@ def write_manifest(
         "source_log": str(display_path(log_path)),
         "output_dir": str(display_path(output_dir)),
         "created_at_utc": created_at_utc,
+        "run_status": run_status,
         "row_count": len(df),
         "duration_s": duration_s(df),
         "debug_plots_enabled": debug_plots_enabled,
