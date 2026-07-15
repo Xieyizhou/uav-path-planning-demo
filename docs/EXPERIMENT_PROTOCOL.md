@@ -64,10 +64,11 @@ outputs/comparisons/aggregate/
 
 ## Setup
 
+Run the following commands from the repository root.
+
 Install dependencies once:
 
 ```bash
-cd ~/projects/drone-ai
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -75,26 +76,24 @@ pip install -r requirements.txt
 Start PX4 SITL with the substation world in a separate terminal:
 
 ```bash
-cd ~/projects/drone-ai
-bash scripts/flight/start_px4_substation.sh
+python main.py map start
 ```
 
-Run experiment commands from the project root:
+Activate the project virtual environment before running experiment commands:
 
 ```bash
-cd ~/projects/drone-ai
 source .venv/bin/activate
 ```
 
 ## Runner Commands
 
-Use the formal runner scripts when possible:
+Use the unified experiment commands:
 
 ```bash
-bash scripts/flight/experiments/run_static_astar.sh
-bash scripts/flight/experiments/run_perception_response.sh
-bash scripts/flight/experiments/run_replan_log_only.sh
-bash scripts/flight/experiments/run_active_replan.sh
+python main.py experiment run static
+python main.py experiment run perception
+python main.py experiment run replan-log
+python main.py experiment run active-replan
 ```
 
 Expected four-experiment runner mapping:
@@ -132,14 +131,14 @@ python main.py astar fly \
 Analyze the latest A* log:
 
 ```bash
-python main.py astar analyze \
+python main.py report analyze \
   --obstacle-config config/substation_obstacles.json
 ```
 
 Generate deeper diagnostic plots only when needed:
 
 ```bash
-python scripts/analysis/analyze_astar_log.py \
+python main.py report analyze \
   --obstacle-config config/substation_obstacles.json \
   --debug-plots
 ```
@@ -179,7 +178,7 @@ python main.py astar fly \
 Offline local replan preview:
 
 ```bash
-python scripts/analysis/test_local_replan.py
+python main.py check replan
 ```
 
 Expected preview output:
@@ -227,7 +226,7 @@ python main.py astar fly \
 Regenerate all stage summaries and evaluation tables:
 
 ```bash
-python scripts/analysis/summarize_experiments.py
+python main.py report summarize
 ```
 
 This scans only staged run folders:
@@ -241,19 +240,19 @@ outputs/<stage>/runs/as_*/
 Generate both cross-stage comparison layers:
 
 ```bash
-python scripts/analysis/compare_experiment_sets.py --mode both --min-runs-per-stage 1
+python main.py report compare --mode both --min-runs-per-stage 1
 ```
 
 Generate only the landmark README/demo comparison:
 
 ```bash
-python scripts/analysis/compare_experiment_sets.py --mode landmark
+python main.py report compare --mode landmark
 ```
 
 Generate only the repeated-trial aggregate comparison:
 
 ```bash
-python scripts/analysis/compare_experiment_sets.py --mode aggregate --min-runs-per-stage 3
+python main.py report compare --mode aggregate --min-runs-per-stage 3
 ```
 
 The landmark comparison looks for selected marker files inside staged run folders and writes outputs only when all four required stages have at least one selected analyzed run. If any required stage is missing, the command prints a skip message, lists missing stages, writes `comparison_status.md`, and leaves existing landmark summaries unchanged.
@@ -277,3 +276,36 @@ outputs/comparisons/aggregate/included_runs.csv
 - Log-only replan vs active replan: log-only shows whether a local replan would have been available; active replan shows whether the route was actually replaced.
 - Active replan success requires more than a successful A* attempt. Check active route replacement count, final status, safety-buffer violations, and obstacle clearance.
 - Missing metrics should remain blank or `unavailable`; do not invent values when logs or manifest fields are absent.
+
+## Active Replan Target Validation
+
+Each analyzed active-replan run records a target-switching status of `PASS`,
+`FAIL`, `UNAVAILABLE`, or `NOT_APPLICABLE` in `summary.md` and `manifest.json`.
+`PASS` means an outbound route replacement was recorded, the pre-replan target
+and first RWP target were observable, no original `WP<number>` target returned
+during the rest of outbound flight, the distinct RWP numbers were contiguous,
+the original outbound goal was reached, and the mission completed without an
+error/danger landing or incomplete log. Return-home targets are excluded.
+
+Repeated telemetry samples are collapsed before checking the sequence because
+the logger normally records the same active target several times. The first
+observed replacement target may be greater than `RWP01`: the runtime
+intentionally skips initial replanned waypoints already inside waypoint
+tolerance. From that first observed RWP onward, every distinct RWP number must
+increase by exactly one.
+
+Original-goal validation requires the runtime to enter `goal_hover`, the final
+outbound RWP target coordinates to match the original goal target coordinates
+logged in that phase, and a goal-hover sample to have horizontal and vertical
+errors strictly below the current 0.4 m waypoint acceptance thresholds. A
+successful local A* attempt or route replacement does not prove goal arrival.
+
+After analyzing the trials, validate the latest three eligible runs with:
+
+```bash
+python main.py report validate-active --latest 3
+```
+
+Three real active-replan PX4/Gazebo runs from the current implementation must
+all pass before claiming target-switching validation. The existing known
+limitation remains in effect until those three new trials pass.

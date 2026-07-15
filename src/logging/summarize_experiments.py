@@ -321,7 +321,13 @@ def commanded_speed(rows):
     return None, None
 
 
-def choose_status(raw_collision, inflated_entry, final_error):
+def choose_status(raw_collision, inflated_entry, final_error, run_status=None):
+    if run_status:
+        if (
+            run_status.get("status") != "completed"
+            or run_status.get("landing_confirmed") is not True
+        ):
+            return "FAIL"
     if parse_bool(raw_collision):
         return "FAIL"
     if parse_bool(inflated_entry):
@@ -342,6 +348,7 @@ def collect_run(output_dir):
     perception = manifest.get("perception_summary", {})
     replan = manifest.get("replan_summary", {}) or {}
     active_replan = manifest.get("active_replan_route_replacement_summary", {}) or {}
+    run_status = manifest.get("run_status") or {}
 
     run_id = first_non_empty(manifest.get("run_id"), summary.get("run_id"), output_dir.name)
     source_log = first_non_empty(manifest.get("source_log"), summary.get("source_log"))
@@ -486,7 +493,10 @@ def collect_run(output_dir):
         ),
         "planned_path_length_m": planned_path_length(rows),
         "actual_traveled_distance_m": approximate_distance_traveled(rows),
-        "notes": warning_note(manifest.get("warnings")),
+        "notes": first_non_empty(
+            run_status.get("message") if run_status else None,
+            warning_note(manifest.get("warnings")),
+        ),
         "max_active_replan_path_length": first_non_empty(
             active_replan.get("max_active_replan_path_length"),
             replan.get("max_active_replan_path_length"),
@@ -500,6 +510,7 @@ def collect_run(output_dir):
         result["raw_physical_collision_detected"],
         result["inflated_safety_buffer_entry_detected"],
         result["final_horizontal_error_m"],
+        manifest.get("run_status"),
     )
     result["completed_or_failed"] = completed_or_failed(result["status"])
     result["final_status"] = result["status"]
@@ -800,7 +811,7 @@ def write_markdown(rows, stage_name, summary_csv, summary_md):
             [
                 "No analyzed A* runs were found.",
                 "",
-                "Run `python scripts/analysis/analyze_astar_log.py --obstacle-config config/substation_obstacles.json` first.",
+                "Run `python main.py report analyze --obstacle-config config/substation_obstacles.json` first.",
             ]
         )
     else:
@@ -878,7 +889,7 @@ def write_output_index(stage_counts):
             "## Comparisons",
             "",
             f"- Cross-stage comparison outputs: `{display_path(get_comparisons_dir())}`",
-            "- Use `python scripts/analysis/compare_experiment_sets.py` for intentional landmark comparisons across stages.",
+            "- Use `python main.py report compare` for intentional landmark comparisons across stages.",
         ]
     )
     (OUTPUT_ROOT / "README.md").write_text("\n".join(lines) + "\n")

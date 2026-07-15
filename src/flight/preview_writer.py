@@ -73,6 +73,11 @@ def save_preview(
     preview_json = {
         "planner_name": planner_name,
         "map_name": planner_config["map_name"],
+        "target_id": planner_config.get("target_id"),
+        "target_display_name": planner_config.get("target_display_name"),
+        "gazebo_world_origin_m": planner_config.get(
+            "gazebo_world_origin_m", [0.0, 0.0, 0.0]
+        ),
         "obstacle_config": (
             str(display_path_func(planner_config["obstacle_config_path"]))
             if planner_config["obstacle_config_path"] is not None
@@ -126,6 +131,7 @@ def save_preview(
     ax.set_title(
         "A* Grid Path Preview\n"
         f"Map: {planner_config['map_name']} | "
+        f"Target: {planner_config.get('target_display_name') or 'config default'} | "
         f"altitude={planner_config['altitude_m']} m | "
         f"vertical margin={planner_config['vertical_safety_margin_m']} m | "
         f"inflation={planner_config['horizontal_inflation_cells']} cell(s)\n"

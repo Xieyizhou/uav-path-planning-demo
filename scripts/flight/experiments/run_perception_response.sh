@@ -17,17 +17,8 @@ echo "===================================="
 
 cleanup_mavsdk
 
-python main.py astar fly \
-  --obstacle-config "$OBSTACLE_CONFIG" \
-  --return-home \
-  --altitude 1.5 \
-  --max-speed 0.8 \
-  --return-speed-scale 0.7 \
-  --waypoint-acceptance 0.3 \
-  --enable-perception \
-  --risk-action slow_down \
-  --waypoint-timeout auto \
-  --min-risk-speed 0.3
+run_managed_flight python scripts/flight/run_task.py run fly_with_perception -- \
+  --obstacle-config "$OBSTACLE_CONFIG"
 
 analyze_latest
 mark_latest_output "perception_response" "KEEP_COMPARISON__perception_slow_down.txt"

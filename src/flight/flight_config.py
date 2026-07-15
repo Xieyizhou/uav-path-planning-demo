@@ -58,13 +58,32 @@ WAYPOINT_TIMEOUT_MODE = "auto"
 RETURN_SPEED_SCALE = 0.7
 TURN_SETTLE_S = 1.0
 MIN_RISK_SPEED_M_S = 0.3
+CONNECTION_TIMEOUT_S = 30.0
+POSITION_READY_TIMEOUT_S = 60.0
+TELEMETRY_TIMEOUT_S = 10.0
+LANDING_TIMEOUT_S = 45.0
+LOGGER_SHUTDOWN_TIMEOUT_S = 10.0
 
 
 def _list_cells(cells):
     return [[x, y] for x, y in cells]
 
 
-def parse_args():
+def selected_obstacle_config_path():
+    """Return the obstacle config paired with the currently selected Gazebo map."""
+    from src.maps.map_catalog import current_map, project_path
+
+    return project_path(current_map()["obstacle_config"])
+
+
+def selected_target_for_config_path(config_path):
+    """Return the saved target preset when a config belongs to the map catalog."""
+    from src.maps.target_catalog import selected_target_for_config
+
+    return selected_target_for_config(config_path)
+
+
+def parse_args(argv=None):
     """Parse the standalone flight-script CLI.
 
     Returns:
@@ -85,6 +104,11 @@ def parse_args():
         help="Plan and save a preview without connecting to PX4 or flying.",
     )
     parser.add_argument(
+        "--compact-output",
+        action="store_true",
+        help="Print a short task summary instead of full obstacle-cell diagnostics.",
+    )
+    parser.add_argument(
         "--allow-diagonal",
         action="store_true",
         help="Allow diagonal moves in the A* grid planner.",
@@ -101,10 +125,19 @@ def parse_args():
         default=None,
         help="Target altitude above takeoff in meters. Overrides obstacle config altitude_m.",
     )
-    parser.add_argument(
+    map_source = parser.add_mutually_exclusive_group()
+    map_source.add_argument(
         "--obstacle-config",
         type=Path,
-        help="Optional JSON obstacle config, for example config/substation_obstacles.json.",
+        help=(
+            "JSON obstacle config override. When omitted, use the obstacle config "
+            "paired with the map selected by `python main.py map`."
+        ),
+    )
+    map_source.add_argument(
+        "--use-built-in-grid",
+        action="store_true",
+        help="Use the legacy built-in 10 x 10 grid instead of the selected test map.",
     )
     parser.add_argument(
         "--return-home",
@@ -240,7 +273,95 @@ def parse_args():
         default=5,
         help="Maximum local replan attempts per flight. Default: 5",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "--connection-timeout",
+        type=float,
+        default=CONNECTION_TIMEOUT_S,
+        help=f"Seconds to wait for a PX4 connection. Default: {CONNECTION_TIMEOUT_S:g}",
+    )
+    parser.add_argument(
+        "--position-ready-timeout",
+        type=float,
+        default=POSITION_READY_TIMEOUT_S,
+        help=f"Seconds to wait for PX4 local-position readiness. Default: {POSITION_READY_TIMEOUT_S:g}",
+    )
+    parser.add_argument(
+        "--telemetry-timeout",
+        type=float,
+        default=TELEMETRY_TIMEOUT_S,
+        help=f"Maximum age of critical telemetry during flight. Default: {TELEMETRY_TIMEOUT_S:g}",
+    )
+    parser.add_argument(
+        "--landing-timeout",
+        type=float,
+        default=LANDING_TIMEOUT_S,
+        help=f"Seconds to wait for confirmed landing. Default: {LANDING_TIMEOUT_S:g}",
+    )
+    parser.add_argument(
+        "--logger-shutdown-timeout",
+        type=float,
+        default=LOGGER_SHUTDOWN_TIMEOUT_S,
+        help=f"Seconds to wait for telemetry logger shutdown. Default: {LOGGER_SHUTDOWN_TIMEOUT_S:g}",
+    )
+    args = parser.parse_args(argv)
+    if args.obstacle_config is None and not args.use_built_in_grid:
+        args.obstacle_config = selected_obstacle_config_path()
+    return args
+
+
+def validate_runtime_args(args):
+    """Reject unsafe or internally inconsistent runtime settings."""
+    positive_fields = {
+        "--max-speed": args.max_speed,
+        "--return-speed-scale": args.return_speed_scale,
+        "--waypoint-acceptance": args.waypoint_acceptance,
+        "--min-risk-speed": args.min_risk_speed,
+        "--resolution": args.resolution,
+        "--detection-range": args.detection_range,
+        "--warning-distance": args.warning_distance,
+        "--danger-distance": args.danger_distance,
+        "--connection-timeout": args.connection_timeout,
+        "--position-ready-timeout": args.position_ready_timeout,
+        "--telemetry-timeout": args.telemetry_timeout,
+        "--landing-timeout": args.landing_timeout,
+        "--logger-shutdown-timeout": args.logger_shutdown_timeout,
+    }
+    if args.altitude is not None:
+        positive_fields["--altitude"] = args.altitude
+    for flag, value in positive_fields.items():
+        if value <= 0:
+            raise ValueError(f"{flag} must be positive")
+
+    if args.turn_settle < 0:
+        raise ValueError("--turn-settle must be non-negative")
+    if not 0 < args.detection_fov <= 360:
+        raise ValueError("--detection-fov must be greater than 0 and at most 360")
+    if not args.danger_distance <= args.warning_distance <= args.detection_range:
+        raise ValueError(
+            "Perception distances must satisfy danger <= warning <= detection range"
+        )
+    if (
+        args.enable_perception
+        and args.risk_action == "slow_down"
+        and args.min_risk_speed > args.max_speed
+    ):
+        raise ValueError("--min-risk-speed must not exceed --max-speed")
+
+
+def validate_planner_safety(planner_config):
+    """Reject map configurations that place takeoff or goal in physical obstacles."""
+    raw_cells = planner_config["raw_obstacle_cells"]
+    errors = []
+    if planner_config["start"] in raw_cells:
+        errors.append(f"start cell {planner_config['start']} is inside a raw physical footprint")
+    if planner_config["goal"] in raw_cells:
+        errors.append(f"goal cell {planner_config['goal']} is inside a raw physical footprint")
+    if planner_config["altitude_m"] <= 0:
+        errors.append("planned flight altitude must be positive")
+    if planner_config["resolution_m"] <= 0:
+        errors.append("map resolution must be positive")
+    if errors:
+        raise ValueError("Unsafe planner configuration: " + "; ".join(errors))
 
 
 def make_log_path():
@@ -255,6 +376,7 @@ def default_planner_config(resolution_m, altitude_m):
         altitude_m = 2.5
     return {
         "map_name": DEFAULT_MAP_NAME,
+        "gazebo_world_origin_m": [0.0, 0.0, 0.0],
         "width": GRID_WIDTH,
         "height": GRID_HEIGHT,
         "start": GRID_START,
@@ -293,8 +415,9 @@ def load_planner_config(args):
     Returns:
         A dictionary containing grid dimensions, start/goal cells, height-aware
         obstacle cells, local waypoint conversion settings, and validation
-        warnings. When `--obstacle-config` is provided, this uses the JSON
-        obstacle map; otherwise it falls back to the built-in toy grid.
+        warnings. By default this uses the JSON obstacle map paired with the
+        current catalog selection. `--obstacle-config` overrides that selection,
+        while `--use-built-in-grid` explicitly requests the legacy toy grid.
 
     Side effects:
         Prints the selected map, obstacle counts, and validation warnings to
@@ -310,6 +433,11 @@ def load_planner_config(args):
 
     config = load_obstacle_config(config_path)
     start, goal = get_start_goal(config)
+    selected_target = selected_target_for_config_path(config_path)
+    if selected_target is not None:
+        goal = tuple(int(value) for value in selected_target["cell"])
+    validation_config = dict(config)
+    validation_config["goal_cell"] = list(goal)
     resolution_m, config_altitude_m = get_resolution_altitude(config)
     altitude_m = args.altitude if args.altitude is not None else config_altitude_m
     obstacle_map = build_obstacle_map(
@@ -319,7 +447,7 @@ def load_planner_config(args):
         goal_cell=goal,
     )
     validation_warnings = validate_obstacle_config(
-        config,
+        validation_config,
         args.allow_diagonal,
         flight_altitude_m=altitude_m,
     )
@@ -327,6 +455,14 @@ def load_planner_config(args):
 
     planner_config = {
         "map_name": config.get("map_name", config_path.stem),
+        "target_id": selected_target["id"] if selected_target else None,
+        "target_display_name": (
+            selected_target["display_name"] if selected_target else None
+        ),
+        "gazebo_world_origin_m": [
+            float(value)
+            for value in config.get("gazebo_world_origin_m", [0.0, 0.0, 0.0])
+        ],
         "width": int(config["width"]),
         "height": int(config["height"]),
         "start": start,
@@ -357,20 +493,41 @@ def load_planner_config(args):
 
     print(f"Using obstacle config: {display_path(config_path)}")
     print(f"Map name: {planner_config['map_name']}")
+    if selected_target is not None:
+        print(
+            f"Selected target: {selected_target['id']} — "
+            f"{selected_target['display_name']}"
+        )
     print(f"Start cell: {planner_config['start']}")
     print(f"Goal cell: {planner_config['goal']}")
     print(f"Resolution: {resolution_m} m/cell")
-    print("Height-aware planning:")
-    print(f"  flight altitude: {planner_config['altitude_m']} m")
-    print(f"  vertical safety margin: {planner_config['vertical_safety_margin_m']} m")
-    print(f"  horizontal inflation cells: {planner_config['horizontal_inflation_cells']}")
-    print(f"  blocking obstacles: {planner_config['blocking_obstacle_names']}")
-    print(f"  ignored/nonblocking obstacles: {planner_config['nonblocking_obstacle_names']}")
-    print(f"Raw physical footprint cells: {planner_config['raw_obstacle_cell_count']}")
-    print(f"Height-blocking raw footprint cells: {planner_config['raw_blocking_cell_count']}")
-    print(f"Inflated blocking obstacle cells: {planner_config['inflated_obstacle_cell_count']}")
-    print(f"Raw physical footprint cells: {_list_cells(sorted(planner_config['raw_obstacle_cells']))}")
-    print(f"Inflated planning obstacle cells: {_list_cells(sorted(planner_config['inflated_blocking_cells']))}")
+    print(f"Flight altitude: {planner_config['altitude_m']} m")
+    print(
+        "Obstacle cells: "
+        f"raw={planner_config['raw_obstacle_cell_count']}, "
+        f"inflated={planner_config['inflated_obstacle_cell_count']}"
+    )
+    if not args.compact_output:
+        print("Height-aware planning:")
+        print(f"  vertical safety margin: {planner_config['vertical_safety_margin_m']} m")
+        print(f"  horizontal inflation cells: {planner_config['horizontal_inflation_cells']}")
+        print(f"  blocking obstacles: {planner_config['blocking_obstacle_names']}")
+        print(
+            "  ignored/nonblocking obstacles: "
+            f"{planner_config['nonblocking_obstacle_names']}"
+        )
+        print(
+            "Height-blocking raw footprint cells: "
+            f"{planner_config['raw_blocking_cell_count']}"
+        )
+        print(
+            "Raw physical footprint cells: "
+            f"{_list_cells(sorted(planner_config['raw_obstacle_cells']))}"
+        )
+        print(
+            "Inflated planning obstacle cells: "
+            f"{_list_cells(sorted(planner_config['inflated_blocking_cells']))}"
+        )
     if validation_warnings:
         print("Obstacle config validation warnings:")
         for warning in validation_warnings:

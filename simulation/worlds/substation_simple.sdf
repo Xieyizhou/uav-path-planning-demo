@@ -21,6 +21,15 @@
       <elevation>0</elevation>
     </spherical_coordinates>
 
+    <!--
+      Keep the 20 x 20 m planning map centered on the Gazebo world origin.
+      Child coordinates remain map-local (0..20), so they continue to match
+      the A* grid and obstacle configuration without per-entity offsets.
+    -->
+    <model name="substation_map">
+      <static>true</static>
+      <pose>-10 -10 0 0 0 0</pose>
+
     <!-- Physics-only ground plane. The visible map is the custom substation_floor below. -->
     <model name="ground_plane">
       <static>true</static>
@@ -1048,6 +1057,7 @@
           </material>
         </visual>
       </link>
+    </model>
     </model>
   </world>
 </sdf>

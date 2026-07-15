@@ -112,11 +112,11 @@ The dry-run preview now draws both layers:
 - dark hatched cells: inflated planning obstacles used by A*
 - blue/orange/red path layers: outbound path, simplified waypoints, and return route
 
-`scripts/fly_astar_path.py` validates the height-aware obstacle config before previewing or flying. It checks that the start and goal are inside the map, start/goal are not blocked, the nearby start zone cells are free, obstacle footprints and vertical ranges are sane, the goal is not too close to inflated obstacles, and a path exists. If the goal is adjacent to inflated blocking cells, it prints nearby safer candidate goal cells but does not automatically change the configured goal.
+`python main.py astar preview` validates the height-aware obstacle config before previewing or flying. It checks that the start and goal are inside the map, start/goal are not blocked, the nearby start zone cells are free, obstacle footprints and vertical ranges are sane, the goal is not too close to inflated obstacles, and a path exists. If the goal is adjacent to inflated blocking cells, it prints nearby safer candidate goal cells but does not automatically change the configured goal.
 
 ## Analysis Improvements
 
-`scripts/analyze_astar_log.py` can overlay the raw and inflated obstacle layers on the trajectory plot when given `--obstacle-config config/substation_obstacles.json`. It uses the altitude recorded in the log when available, otherwise it uses `altitude_m` from the obstacle config.
+`python main.py report analyze` can overlay the raw and inflated obstacle layers on the trajectory plot when given `--obstacle-config config/substation_obstacles.json`. It uses the altitude recorded in the log when available, otherwise it uses `altitude_m` from the obstacle config.
 
 The analysis output:
 
@@ -197,7 +197,7 @@ From this project:
 ```bash
 cd ~/projects/drone-ai
 source .venv/bin/activate
-python scripts/fly_astar_path.py --dry-run --obstacle-config config/substation_obstacles.json
+python main.py astar preview --obstacle-config config/substation_obstacles.json
 ```
 
 Preview outputs:
@@ -212,7 +212,7 @@ Preview outbound and return path:
 ```bash
 cd ~/projects/drone-ai
 source .venv/bin/activate
-python scripts/fly_astar_path.py --dry-run --obstacle-config config/substation_obstacles.json --return-home
+python main.py astar preview --obstacle-config config/substation_obstacles.json --return-home
 ```
 
 Height-aware preview at the default low flight altitude:
@@ -220,7 +220,7 @@ Height-aware preview at the default low flight altitude:
 ```bash
 cd ~/projects/drone-ai
 source .venv/bin/activate
-python scripts/fly_astar_path.py --dry-run --obstacle-config config/substation_obstacles.json --return-home --altitude 1.5
+python main.py astar preview --obstacle-config config/substation_obstacles.json --return-home --altitude 1.5
 ```
 
 Fly the substation A* route:
@@ -228,25 +228,25 @@ Fly the substation A* route:
 ```bash
 cd ~/projects/drone-ai
 source .venv/bin/activate
-python scripts/fly_astar_path.py --obstacle-config config/substation_obstacles.json --return-home
+python main.py astar fly --obstacle-config config/substation_obstacles.json --return-home
 ```
 
 Safer controller test options:
 
 ```bash
-python scripts/fly_astar_path.py --obstacle-config config/substation_obstacles.json --return-home --altitude 1.5 --max-speed 0.8 --return-speed-scale 0.7 --waypoint-acceptance 0.3
+python main.py astar fly --obstacle-config config/substation_obstacles.json --return-home --altitude 1.5 --max-speed 0.8 --return-speed-scale 0.7 --waypoint-acceptance 0.3
 ```
 
 Analyze the newest A* flight log with obstacle validation:
 
 ```bash
-python scripts/analyze_astar_log.py --obstacle-config config/substation_obstacles.json
+python main.py report analyze --obstacle-config config/substation_obstacles.json
 ```
 
 Full debug analysis:
 
 ```bash
-python scripts/analyze_astar_log.py --obstacle-config config/substation_obstacles.json --debug-plots
+python main.py report analyze --obstacle-config config/substation_obstacles.json --debug-plots
 ```
 
 Default analysis is for normal experiment review. It writes the core files `summary.md`, `manifest.json`, `traj.png`, `traj_with_obstacles.png` when an obstacle config is available, `error.png`, and `perception_risk_timeline.png` when perception columns exist. Use `--debug-plots` to diagnose altitude, velocity, yaw, waypoint switching, nearest-obstacle distance, and perception count details.
@@ -263,18 +263,14 @@ The first perception stage does not use real Gazebo LiDAR, depth, camera data, n
 Test without PX4 or Gazebo:
 
 ```bash
-python scripts/test_simple_perception.py \
-  --obstacle-config config/substation_obstacles.json \
-  --detection-range 4.0 \
-  --detection-fov 90 \
-  --warning-distance 2.0 \
-  --danger-distance 1.0
+python main.py check perception \
+  --obstacle-config config/substation_obstacles.json
 ```
 
 Fly with simulated perception logging:
 
 ```bash
-python scripts/fly_astar_path.py \
+python main.py astar fly \
   --obstacle-config config/substation_obstacles.json \
   --return-home \
   --altitude 1.5 \
@@ -294,7 +290,7 @@ Risk levels are `clear`, `detected`, `warning`, and `danger`. Defaults are detec
 Analyze the resulting log with the normal analyzer:
 
 ```bash
-python scripts/analyze_astar_log.py --obstacle-config config/substation_obstacles.json
+python main.py report analyze --obstacle-config config/substation_obstacles.json
 ```
 
 When perception columns are present, normal analysis writes `perception_risk_timeline.png` and a `Perception Summary` section in `summary.md`. The summary includes total duration, risk sample counts and ratios, time and percent time in clear/detected/warning/danger, and nearest-obstacle distance statistics. Re-run with `--debug-plots` to also create `perception_timeline.png` and `detection_count_over_time.png`.
@@ -302,7 +298,7 @@ When perception columns are present, normal analysis writes `perception_risk_tim
 Summarize all analyzed A* experiment runs:
 
 ```bash
-python scripts/summarize_experiments.py
+python main.py report summarize
 ```
 
 The summary tool scans `outputs/as_*/summary.md` and `outputs/as_*/manifest.json` and writes:
@@ -314,11 +310,10 @@ outputs/experiment_summary.md
 
 The experiment summary groups runs by `risk_action` and compares normalized warning/danger ratios, percent time in warning/danger, obstacle distance statistics, duration, and collision/buffer flags. This is intended for comparing `log_only` and `slow_down` runs with different durations.
 
-Convenience wrappers:
+Unified commands:
 
 ```bash
 python main.py astar preview --obstacle-config config/substation_obstacles.json --return-home
 python main.py astar fly --obstacle-config config/substation_obstacles.json --return-home
-python main.py astar analyze --obstacle-config config/substation_obstacles.json
-python main.py astar run --obstacle-config config/substation_obstacles.json --return-home
+python main.py report analyze --obstacle-config config/substation_obstacles.json
 ```

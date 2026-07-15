@@ -17,18 +17,8 @@ echo "Replan: log_only / no active route replacement"
 echo "===================================="
 cleanup_mavsdk
 
-python main.py astar fly \
-  --obstacle-config "$OBSTACLE_CONFIG" \
-  --return-home \
-  --altitude 1.5 \
-  --max-speed 0.8 \
-  --return-speed-scale 0.7 \
-  --waypoint-acceptance 0.3 \
-  --enable-perception \
-  --risk-action log_only \
-  --enable-local-replan \
-  --replan-mode log_only \
-  --replan-risk-level danger
+run_managed_flight python scripts/flight/run_task.py run replan_log_only -- \
+  --obstacle-config "$OBSTACLE_CONFIG"
 
 analyze_latest
 mark_latest_output "replan_log_only" "KEEP_CONTROL__log_only_local_replan_no_route_replacement.txt"

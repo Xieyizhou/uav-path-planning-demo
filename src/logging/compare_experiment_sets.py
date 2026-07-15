@@ -595,7 +595,7 @@ def write_landmark_outputs(args):
             generated=False,
         )
         print(f"Wrote {display_path(status_path)}")
-        return
+        return False
 
     write_csv(rows, csv_path)
     write_markdown(rows, md_path, csv_path)
@@ -612,6 +612,7 @@ def write_landmark_outputs(args):
     print(f"Wrote {display_path(md_path)}")
     print(f"Wrote {display_path(selected_path)}")
     print(f"Wrote {display_path(status_path)}")
+    return True
 
 
 def write_aggregate_outputs(all_runs, min_runs_per_stage):
@@ -654,17 +655,22 @@ def main():
     print_stage_counts(all_runs)
     aggregate_missing_stages = missing_required_stages(all_runs, args.min_runs_per_stage)
 
+    success = True
     if args.mode in {"landmark", "both"}:
-        if args.mode == "both" and aggregate_missing_stages:
+        if args.mode == "both" and aggregate_missing_stages and not args.allow_partial:
             print(
                 "Skipping landmark comparison refresh because the aggregate "
                 "stage set is incomplete; existing landmark outputs were left unchanged."
             )
+            success = False
         else:
-            write_landmark_outputs(args)
+            success = write_landmark_outputs(args) and success
     if args.mode in {"aggregate", "both"}:
         write_aggregate_outputs(all_runs, args.min_runs_per_stage)
+        if aggregate_missing_stages and not args.allow_partial:
+            success = False
+    return 0 if success else 2
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

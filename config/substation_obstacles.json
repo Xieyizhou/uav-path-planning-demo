@@ -1,6 +1,7 @@
 {
-  "map_name": "substation_simple_v3",
+  "map_name": "substation_simple_v4",
   "note": "Obstacle rectangles use inclusive grid cell indices. Cell centers map to local coordinates using x+0.5 and y+0.5.",
+  "gazebo_world_origin_m": [-10.0, -10.0, 0.0],
   "width": 20,
   "height": 20,
   "resolution_m": 1.0,

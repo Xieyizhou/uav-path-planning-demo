@@ -8,7 +8,7 @@ launchers.
 
 ```text
 PX4/Gazebo simulation
-  -> MAVSDK flight wrapper (`main.py` / `scripts/flight/fly_astar_path.py`)
+  -> Unified command layer (`main.py` / `src/cli/`)
   -> Flight implementation (`src/flight/fly_astar_path.py`)
   -> A* global planner (`src/planner/`)
   -> Local NED waypoint execution

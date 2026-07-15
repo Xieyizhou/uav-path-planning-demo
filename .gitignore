@@ -39,6 +39,7 @@ logs/
 tmp/
 temp/
 .tmp/
+.runtime/
 
 # Large local media should be attached to releases, not committed.
 release_assets/*
