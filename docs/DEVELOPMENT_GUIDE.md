@@ -21,7 +21,8 @@ Then inspect only the files named by the task unless local context proves anothe
 - Per-stage summaries: `src/logging/summarize_experiments.py`
 - Cross-stage comparison: `src/logging/compare_experiment_sets.py`
 - Flight behavior: `src/flight/fly_astar_path.py`
-- Runnable compatibility wrappers: `scripts/analysis/`, `scripts/flight/`
+- User-facing commands: `main.py`; keep `scripts/analysis/` and `scripts/flight/`
+  only as small implementation entry points or compatibility wrappers
 
 Do not inspect broad directories by default. Prefer `rg` and targeted file reads.
 

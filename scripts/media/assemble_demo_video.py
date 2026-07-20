@@ -398,7 +398,7 @@ def main() -> None:
                 build_dir,
                 source=github_screenshot,
                 duration=6,
-                title="GitHub release: v0.1-resume-demo",
+                title="GitHub release: v0.2.0",
             )
         else:
             make_card(
@@ -407,7 +407,7 @@ def main() -> None:
                 duration=6,
                 title="GitHub release",
                 body=(
-                    "v0.1-resume-demo\n"
+                    "v0.2.0\n"
                     "Attach the generated MP4 as a release asset\n"
                     "Keep raw logs and large media out of git"
                 ),

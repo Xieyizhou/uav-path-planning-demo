@@ -46,18 +46,23 @@ official stage:
 
 | Stage | Flight time | Key result | Safety-buffer violations | Status |
 | --- | ---: | --- | ---: | --- |
-| Static A* | 149.132 s | Completed a 68 m planned round trip | 0 | PASS |
-| Perception response | 177.210 s | 679 risk detections and 305 slow-down events | 0 | PASS |
-| Replan log-only | 149.169 s | 4 successful candidates from 4 replan attempts | 0 | PASS |
-| Active replan | 220.088 s | 3 successful replans and 1 active route replacement | 0 | PASS* |
+| Static A* | 149.316 s | Completed a 68 m planned round trip | 0 | PASS |
+| Perception response | 174.563 s | 671 risk detections and 296 slow-down events | 0 | PASS |
+| Replan log-only | 149.850 s | 4 successful candidates from 4 replan attempts | 0 | PASS |
+| Active replan | 222.392 s | 3 successful replans and 1 active route replacement | 0 | PASS |
 
 Source data: [comparison summary](data/sample_outputs/comparison_summary.md) and
 [selected run metadata](data/sample_outputs/selected_runs.json).
 
-\* The legacy active-replan landmark proves route replacement, but its log also
-contains a target-switching anomaly. The current code includes stricter
-target-sequence validation; three new real simulation trials must pass before
-claiming robust active-replan target switching.
+The refreshed landmark uses active run `as_20260713_070842`. The latest three
+eligible active-replan runs all pass strict target-switching validation with a
+contiguous `RWP01` through `RWP06` sequence, no old outbound `WP` target after
+replacement, original-goal arrival, and completed landing.
+
+The aggregate comparison now includes 4 static, 3 perception-response, 3
+log-only replan, and 6 active-replan runs. All 16 are completed and marked
+`PASS`, with zero recorded safety-buffer violations. See the committed
+[aggregate summary](data/sample_outputs/aggregate_summary.md).
 
 ## System Architecture
 
@@ -184,8 +189,8 @@ step and is not implied by a passing offline CI run.
 - Simulation only; the system has not been validated on real UAV hardware.
 - Perception is map-based and rule-based, not camera/LiDAR deep perception.
 - Obstacles are static in the current portfolio demo.
-- Active route replacement is a prototype and still requires repeated
-  target-switching validation in full PX4/Gazebo trials.
+- Active route replacement has passed repeated target-switching validation on
+  the simple map, but still needs cross-map and dynamic-obstacle validation.
 - The committed results are selected demonstration runs, not a statistical
   performance claim.
 
@@ -195,9 +200,10 @@ step and is not implied by a passing offline CI run.
   MAVSDK waypoint control, simulated perception, telemetry analysis, and local
   route replanning across five substation test environments.
 - Developed a four-stage experimental framework with structured logs,
-  reproducible reports, and safety-aware runtime controls; demonstrated 305
-  perception-triggered slow-down events and active route replacement in
-  simulation with zero recorded safety-buffer violations in selected runs.
+  reproducible reports, and safety-aware runtime controls; measured an average
+  of 300 perception-triggered slow-down events across three response runs and
+  validated active route replacement in simulation with zero recorded
+  safety-buffer violations across 16 analyzed runs.
 - Improved maintainability and reliability through a unified modular CLI, 25
   validated target presets, bounded asynchronous cleanup, explicit failure
   propagation, and 62 automated offline tests.

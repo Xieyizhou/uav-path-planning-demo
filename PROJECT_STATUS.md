@@ -2,107 +2,120 @@
 
 ## Current Goal
 
-Keep the repository as a GitHub-ready, resume-oriented stable demo while preserving the current PX4 SITL A* flight, perception, and replanning behavior.
+Maintain this repository as a stable, resume-oriented PX4/Gazebo autonomy demo.
+The current release target is `v0.2.0`, covering the unified command center,
+five-map test catalog, destination presets, hardened runtime behavior, and
+validated active-replan target switching.
 
-Current priority: keep the public repository focused on the portfolio demo, with source, docs, curated sample outputs, raw logs, and generated experiment outputs easy to distinguish.
-
-Deeper active replanning, dynamic obstacle handling, and waypoint target-switching research should move to a separate future repository instead of expanding this demo repo into a deep research workspace.
-
-After the final root cleanup, README visual placeholder, and release-prep polish, the repository is ready for final `v0.1-resume-demo` release preparation.
-
-Release-demo media tooling is local-only: `scripts/media/assemble_demo_video.py` and the reusable `scripts/media/make_demo_video.py` can assemble `release_assets/uav_path_planning_demo_preview.mp4` from existing assets, and generated release videos remain ignored by git. `make_demo_video.py` now uses a polished black minimalist portfolio style with a full roughly 14-second Gazebo segment.
+The demo intentionally remains simulation-first. Dynamic obstacles, real sensor
+perception, hardware flight, and broader research experiments are future work.
 
 ## Active Workflow
 
-1. Start PX4 SITL separately:
-   `bash scripts/flight/start_px4_substation.sh`
-2. Run one experiment script from `scripts/flight/experiments/`.
-3. Analyze the latest log with `main.py astar analyze`.
-4. Regenerate summaries with `python scripts/analysis/summarize_experiments.py`.
-5. Regenerate intentional cross-stage comparisons after stage runs are analyzed:
-   `python scripts/analysis/compare_experiment_sets.py --mode both --min-runs-per-stage 1`.
+Run public commands through `main.py` from the repository root:
 
-Detailed commands live in [docs/EXPERIMENT_PROTOCOL.md](docs/EXPERIMENT_PROTOCOL.md).
+```bash
+source .venv/bin/activate
+python main.py map
+python main.py point
+python main.py map start
+```
 
-## Staged Output Rules
+In a second terminal, choose a compact task or official experiment:
 
-New outputs must be stage-scoped:
+```bash
+python main.py task list
+python main.py task run fly_round_trip
+python main.py experiment list
+python main.py experiment run static
+```
 
-- `outputs/01_static_astar/`
-- `outputs/02_perception_response/`
-- `outputs/03_replan_log_only/`
-- `outputs/04_active_replan/`
-- `outputs/comparisons/`
-- `outputs/archive/`
+Reports and checks are also integrated:
 
-Do not write new `as_*` run folders directly under top-level `outputs/`. Do not compare stages by default; use `scripts/analysis/compare_experiment_sets.py` for intentional cross-stage comparisons.
+```bash
+python main.py report summarize
+python main.py report compare --mode both --min-runs-per-stage 3
+python main.py report validate-active --latest 3
+python main.py check all
+```
 
-## Cleaned Repository Structure
+See [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) for the complete command set.
 
-- `config/`: substation obstacle configuration.
-- `src/planner/`: A* planner and obstacle-map helpers.
-- `src/perception/`: simulated perception and risk-state helpers.
-- `src/flight/`: MAVSDK/PX4 flight execution implementation.
-- `src/logging/`: telemetry logging, analysis, summaries, plots, and comparison utilities.
-- `scripts/`: runnable wrappers, PX4 launcher, and staged experiment shell scripts.
-- `scripts/dev/`: development-only smoke checks and local utilities.
-- `scripts/media/`: local release/demo media assembly tooling.
-- `simulation/`: Gazebo world assets.
-- `docs/`: durable experiment protocol, results notes, project history, and development workflow guidance.
-- `data/sample_outputs/`: small curated GitHub/demo outputs.
-- `data/logs/`, `data/px4_console_logs/`, `data/raw_logs/`: local raw logs; ignored by git except explanatory README files.
-- `outputs/`: generated previews, run analyses, summaries, and comparisons; ignored by git except `outputs/README.md`.
+## Repository Structure
 
-## Active Entry Points
+- `main.py` and `src/cli/`: unified user command layer.
+- `src/planner/`: A* search and obstacle-map conversion.
+- `src/perception/`: simulated obstacle detection and risk states.
+- `src/flight/`: MAVSDK/PX4 flight execution, tasks, and replanning.
+- `src/maps/`: map catalog, destination persistence, and goal-marker sync.
+- `src/logging/`: telemetry, analysis, summaries, and comparisons.
+- `scripts/flight/experiments/`: internal four-stage experiment launchers.
+- `scripts/maps/`: map generation and manager implementations.
+- `simulation/worlds/`: five Gazebo test environments.
+- `config/maps/`: matching A* configurations and map catalog.
+- `data/sample_outputs/`: small curated landmark and aggregate results.
+- `outputs/`: local generated runs and reports; ignored except its README.
 
-- `main.py`: CLI entry point for A* preview, flight, and analysis.
-- `scripts/flight/experiments/*.sh`: formal experiment runners.
-- `scripts/flight/fly_astar_path.py`: wrapper for the current flight implementation.
-- `src/flight/fly_astar_path.py`: current flight implementation. Large file; refactor only in a dedicated task.
-- `scripts/analysis/analyze_astar_log.py`: wrapper for per-run analysis.
-- `src/logging/analyze_astar_log.py`: current per-run analysis implementation. Large file; refactor only in a dedicated task.
-- `src/logging/summarize_experiments.py`: per-stage summaries and evaluation tables.
-- `src/logging/compare_experiment_sets.py`: landmark and aggregate cross-stage comparisons.
-- `src/logging/output_registry.py`: canonical output paths.
+## Safety and Reliability
 
-## Safety Rules
+- Connection, position, telemetry, waypoint, landing, and logger timeouts.
+- Explicit non-zero failure propagation through the CLI.
+- Confirmed landing state and atomic run-status records.
+- Cleanup limited to project-managed flight and PX4 PIDs.
+- Map switching blocked while a managed flight or PX4 session is active.
+- Parameter, map, destination, and A* reachability validation.
+- 62 passing offline tests plus shell and preview checks in CI.
 
-- Do not modify `~/PX4-Autopilot`.
-- Do not delete experiment logs or real outputs.
-- Do not add planning, perception, replanning, or ML features unless explicitly requested.
-- Do not migrate legacy outputs unless explicitly requested.
-- Keep generated caches and large outputs out of git.
-- Git ignores `.venv/`, `__pycache__/`, `.pycache_compile/`, `.DS_Store`, IDE files, local env files, raw telemetry logs, PX4/Gazebo logs, and generated `outputs/` artifacts.
+## Experiment Status
 
-## Current Experiment Status
+The four official stages currently have these analyzed runs:
 
-- The repo uses a four-stage experiment structure matching `outputs/01_*` through `outputs/04_*`.
-- Official launcher mapping: `run_static_astar.sh`, `run_perception_response.sh`, `run_replan_log_only.sh`, and `run_active_replan.sh`.
-- `scripts/flight/experiments/common.sh` is shared infrastructure, not an experiment.
-- Curated landmark comparison lives in `data/sample_outputs/comparison_summary.csv`.
-- Generated landmark comparison writes to `outputs/comparisons/landmark/`.
-- Generated aggregate comparison writes to `outputs/comparisons/aggregate/` and summarizes all valid analyzed runs per stage.
-- Full local run artifacts remain under `outputs/` and are intentionally ignored by git.
-- Raw flight logs remain under `data/logs/` and are intentionally ignored by git.
-- Active local replan has demonstrated route replacement in simulation, but waypoint target switching still needs validation.
-- Older five-experiment wording has been removed from active docs; perception `log_only` may appear only as a diagnostic/control mode.
-- Individual experiment runners update per-stage summaries only; cross-stage comparison generation is manual.
-- `run_all_3x.sh` runs all official stages repeatedly, then generates both landmark and aggregate comparisons using the requested trial count as `--min-runs-per-stage`.
+| Stage | Runs | Completed | PASS |
+| --- | ---: | ---: | ---: |
+| Static A* | 4 | 4 | 4 |
+| Perception response | 3 | 3 | 3 |
+| Replan log-only | 3 | 3 | 3 |
+| Active replan | 6 | 6 | 6 |
 
-## Next-Step Priorities
+The latest three eligible active-replan runs all pass strict target-switching
+validation. Each records the contiguous outbound sequence
+`RWP01 → RWP02 → RWP03 → RWP04 → RWP05 → RWP06`, no old `WP` target after
+replacement, original-goal arrival, and completed landing.
 
-1. Debug active replan waypoint target switching.
-2. Run each staged experiment at least 3 times.
-3. Add demo GIF or screenshots.
-4. Add a visual architecture diagram.
-5. Polish resume bullets.
+The refreshed public landmark uses active run `as_20260713_070842`. The public
+aggregate includes all 16 valid analyzed runs and records zero safety-buffer
+violations across all four stages.
 
-## Detailed Docs
+## Remaining Evidence Gaps
 
-- [README.md](README.md): project overview.
-- [docs/EXPERIMENT_PROTOCOL.md](docs/EXPERIMENT_PROTOCOL.md): experiment commands, outputs, and interpretation.
-- [docs/architecture.md](docs/architecture.md): concise system-flow overview.
-- [docs/experiment_results.md](docs/experiment_results.md): curated sample result summary.
-- [docs/RELEASE_PREP.md](docs/RELEASE_PREP.md): GitHub release asset checklist.
-- [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md): development guide for focused maintainer workflow, file selection, refactor boundaries, and git hygiene.
-- [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md): historical notes.
+- Formal experiment manifests currently come from `substation_simple_v3`.
+- The other four maps are validated offline but still need representative
+  PX4/Gazebo flight runs.
+- Perception remains rule-based and map-based rather than sensor-driven.
+- The project has no real-airframe validation or dynamic-obstacle benchmark.
+- Several large flight and reporting modules remain candidates for refactoring.
+
+## Next Priorities
+
+1. Run representative PX4/Gazebo missions on training, medium, complex, and
+   extreme maps.
+2. Exercise active replanning on complex and extreme maps.
+3. Pin Python dependency versions and add lint/type/coverage checks.
+4. Split the largest flight and report modules without changing behavior.
+5. Keep future hardware and dynamic-obstacle work in a separate research scope.
+
+## Release State
+
+- `v0.1-demo`: original public demo release.
+- `v0.2.0`: current resume-demo release target.
+- License: MIT.
+- Generated videos, raw telemetry, simulator logs, and full output trees remain
+  outside Git history.
+
+## Detailed Documentation
+
+- [README.md](README.md): portfolio overview and measured results.
+- [docs/EXPERIMENT_PROTOCOL.md](docs/EXPERIMENT_PROTOCOL.md): experiment protocol.
+- [docs/MAP_TESTING.md](docs/MAP_TESTING.md): map and destination workflow.
+- [docs/experiment_results.md](docs/experiment_results.md): current evidence.
+- [docs/RELEASE_PREP.md](docs/RELEASE_PREP.md): release checklist.

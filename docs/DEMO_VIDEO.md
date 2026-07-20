@@ -30,7 +30,7 @@ The default output is:
 release_assets/uav_path_planning_demo_preview.mp4
 ```
 
-The generated MP4 is a local release asset and should not be committed to git. Attach it manually to the GitHub `v0.1-resume-demo` release if it is useful.
+The generated MP4 is a local release asset and should not be committed to git. Attach it manually to the GitHub `v0.2.0` release if it is useful.
 
 ## Video Structure
 

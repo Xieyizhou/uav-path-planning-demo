@@ -34,10 +34,10 @@ Older or diagnostic perception `log_only` runs may exist in local outputs, but t
 
 | experiment | output stage | mode | run id | flight time (s) | planned path (m) | actual distance (m) | min obstacle distance (m) | risk detections | slow_down events | replan attempts | successful replans | active replacements | status |
 |---:|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| 1 | `01_static_astar` | baseline A* | `as_20260706_092030` | 149.132 | 68.000 | 67.135 | n/a | 0 | 0 | 0 | 0 | 0 | PASS |
-| 2 | `02_perception_response` | perception_response (`slow_down` action) | `as_20260707_051714` | 177.210 | 68.000 | 67.093 | 0.843 | 679 | 305 | 0 | 0 | 0 | PASS |
-| 3 | `03_replan_log_only` | replan log-only | `as_20260707_055516` | 149.169 | 68.000 | 67.256 | 0.883 | 541 | 0 | 4 | 4 | 0 | PASS |
-| 4 | `04_active_replan` | active replan | `as_20260707_050318` | 220.088 | 82.000 | 70.520 | 0.823 | 865 | 0 | 3 | 3 | 1 | PASS |
+| 1 | `01_static_astar` | baseline A* | `as_20260707_081327` | 149.316 | 68.000 | 67.403 | n/a | 0 | 0 | 0 | 0 | 0 | PASS |
+| 2 | `02_perception_response` | perception_response (`slow_down` action) | `as_20260707_082821` | 174.563 | 68.000 | 67.744 | 0.854 | 671 | 296 | 0 | 0 | 0 | PASS |
+| 3 | `03_replan_log_only` | replan log-only | `as_20260707_083125` | 149.850 | 68.000 | 67.401 | 0.894 | 547 | 0 | 4 | 4 | 0 | PASS |
+| 4 | `04_active_replan` | active replan | `as_20260713_070842` | 222.392 | 82.000 | 67.678 | 0.870 | 867 | 0 | 3 | 3 | 1 | PASS |
 
 ## Aggregate Comparison
 
@@ -53,19 +53,23 @@ This creates:
 - `outputs/comparisons/aggregate/aggregate_summary.md`
 - `outputs/comparisons/aggregate/included_runs.csv`
 
+The current aggregate includes 4 static, 3 perception-response, 3 log-only
+replan, and 6 active-replan runs. All 16 runs are completed and marked `PASS`;
+the comparison records zero safety-buffer violations.
+
 If a stage has fewer than the requested run count, the command still writes the aggregate files and records a warning so the incomplete stage set is visible.
 
 ## Interpretation
 
 - Baseline A* completed the route without perception risk logging.
-- The `perception_response` stage produced 305 slow-down events and increased flight time relative to the static baseline while keeping the planned route unchanged.
+- The selected `perception_response` run produced 296 slow-down events; the three-run aggregate mean is 300.
 - Replan log-only found successful local replan candidates four times while leaving the active route unchanged.
-- Active replan recorded one route replacement, confirming that the active replacement path is exercised.
+- Active replan recorded one route replacement per analyzed run. The latest three eligible runs also pass strict outbound target-sequence validation.
 - All selected landmark runs are marked `PASS`, with zero safety-buffer violations in the comparison table.
 
 ## Known Issues and Next Steps
 
-- Active local replan still needs waypoint target-switching validation. The selected active run notes: `Target jumped from RWP06 to WP09 at t=90.30s; check target switching.`
+- Formal experiment evidence currently covers only `substation_simple_v3`; representative PX4/Gazebo runs are still needed on the other four maps.
 - Several runs include near-boundary clearance warnings even when they do not enter raw obstacle footprints or inflated safety buffers.
-- Run each of the four staged experiments at least three times before treating the metrics as stable benchmark results.
+- Active replanning still needs cross-map and dynamic-obstacle validation before being treated as a general solution.
 - Add a system architecture diagram or short demo GIF for GitHub readers.

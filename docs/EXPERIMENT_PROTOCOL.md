@@ -306,6 +306,9 @@ After analyzing the trials, validate the latest three eligible runs with:
 python main.py report validate-active --latest 3
 ```
 
-Three real active-replan PX4/Gazebo runs from the current implementation must
-all pass before claiming target-switching validation. The existing known
-limitation remains in effect until those three new trials pass.
+The latest three eligible PX4/Gazebo runs currently pass this validation:
+`as_20260713_065534`, `as_20260713_070149`, and `as_20260713_070842`.
+Their replacement sequences are contiguous (`RWP01` through `RWP06`), no old
+outbound waypoint target reappears, and every run reaches the original goal.
+Run the command again after collecting new trials so the claim always follows
+the latest evidence.

@@ -395,7 +395,7 @@ def main() -> None:
                 stills["github"],
                 title="GitHub release",
                 caption=github_caption,
-                detail="v0.1-resume-demo",
+                detail="v0.2.0",
             )
         image_to_video(stills["github"], segments[4], duration=SECTION_DURATIONS["github"])
 
