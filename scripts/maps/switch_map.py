@@ -122,13 +122,11 @@ def run_preview(entry, return_home=False):
     return subprocess.run(command, cwd=PROJECT_ROOT).returncode
 
 
-def start_map(entry):
-    if not require_project_idle("start a new map"):
-        return 1
-    entry = select_map(entry["id"])
+def launcher_environment(entry):
     environment = os.environ.copy()
     environment.update(
         {
+            "PROJECT_ROOT": str(PROJECT_ROOT),
             "MAP_ID": entry["id"],
             "WORLD_NAME": entry["world_name"],
             "WORLD_SRC": str(project_path(entry["world_file"])),
@@ -136,11 +134,34 @@ def start_map(entry):
             "OBSTACLE_CONFIG": entry["obstacle_config"],
         }
     )
+    return environment
+
+
+def check_map(entry):
+    print(
+        f"Checking map launcher for {entry['id']} — {entry['display_name']}...",
+        flush=True,
+    )
+    return subprocess.run(
+        [
+            "bash",
+            str(PROJECT_ROOT / "scripts" / "flight" / "start_px4_substation.sh"),
+            "--check",
+        ],
+        cwd=PROJECT_ROOT,
+        env=launcher_environment(entry),
+    ).returncode
+
+
+def start_map(entry):
+    if not require_project_idle("start a new map"):
+        return 1
+    entry = select_map(entry["id"])
     print(f"Starting map {entry['id']} — {entry['display_name']}...")
     return subprocess.run(
         ["bash", str(PROJECT_ROOT / "scripts" / "flight" / "start_px4_substation.sh")],
         cwd=PROJECT_ROOT,
-        env=environment,
+        env=launcher_environment(entry),
     ).returncode
 
 
@@ -176,6 +197,10 @@ def build_parser():
 
     start_parser = subparsers.add_parser("start", help="Select and start a Gazebo/PX4 map")
     start_parser.add_argument("map_id", nargs="?", help="Defaults to the current map")
+    check_parser = subparsers.add_parser(
+        "check", help="Validate the selected map launcher without starting PX4"
+    )
+    check_parser.add_argument("map_id", nargs="?", help="Defaults to the current map")
     subparsers.add_parser("generate", help="Regenerate all catalogued map files")
     return parser
 
@@ -213,6 +238,9 @@ def main():
         if args.command == "start":
             entry = map_by_id(args.map_id) if args.map_id else current_map()
             return start_map(entry)
+        if args.command == "check":
+            entry = map_by_id(args.map_id) if args.map_id else current_map()
+            return check_map(entry)
         if args.command == "generate":
             return generate_maps()
     except MapCatalogError as error:

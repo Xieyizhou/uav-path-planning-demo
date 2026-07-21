@@ -51,6 +51,16 @@ python main.py point --map extreme list
 Changing or regenerating a map is refused while a project-managed flight or PX4
 session is running. Changing a point is refused only during a managed flight.
 
+To diagnose launcher paths and dependencies without copying a world or starting
+PX4, run:
+
+```bash
+python main.py map check
+```
+
+The launcher derives the project root from its own location, so it works from
+any current directory and ignores a stale `PROJECT_ROOT` environment variable.
+
 ## Advanced A* controls
 
 ```bash

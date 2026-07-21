@@ -64,7 +64,7 @@ See [docs/CLI_REFERENCE.md](docs/CLI_REFERENCE.md) for the complete command set.
 - Cleanup limited to project-managed flight and PX4 PIDs.
 - Map switching blocked while a managed flight or PX4 session is active.
 - Parameter, map, destination, and A* reachability validation.
-- 62 passing offline tests plus shell and preview checks in CI.
+- 67 passing offline tests plus shell and five-map preview checks.
 
 ## Experiment Status
 
@@ -72,7 +72,7 @@ The four official stages currently have these analyzed runs:
 
 | Stage | Runs | Completed | PASS |
 | --- | ---: | ---: | ---: |
-| Static A* | 4 | 4 | 4 |
+| Static A* | 5 | 5 | 5 |
 | Perception response | 3 | 3 | 3 |
 | Replan log-only | 3 | 3 | 3 |
 | Active replan | 6 | 6 | 6 |
@@ -82,9 +82,9 @@ validation. Each records the contiguous outbound sequence
 `RWP01 → RWP02 → RWP03 → RWP04 → RWP05 → RWP06`, no old `WP` target after
 replacement, original-goal arrival, and completed landing.
 
-The refreshed public landmark uses active run `as_20260713_070842`. The public
-aggregate includes all 16 valid analyzed runs and records zero safety-buffer
-violations across all four stages.
+Local stage summaries now include 17 valid analyzed runs. The refreshed public
+landmark uses active run `as_20260713_070842`; the committed public aggregate
+remains the curated 16-run release sample with zero safety-buffer violations.
 
 ## Remaining Evidence Gaps
 
@@ -93,7 +93,10 @@ violations across all four stages.
   PX4/Gazebo flight runs.
 - Perception remains rule-based and map-based rather than sensor-driven.
 - The project has no real-airframe validation or dynamic-obstacle benchmark.
-- Several large flight and reporting modules remain candidates for refactoring.
+- Flight execution and configuration, per-run analysis and report writing,
+  stage summaries, plotting, and cross-stage comparison now use bounded
+  modules with compatibility entries. No Python implementation file exceeds
+  500 lines.
 
 ## Next Priorities
 
@@ -101,7 +104,8 @@ violations across all four stages.
    extreme maps.
 2. Exercise active replanning on complex and extreme maps.
 3. Pin Python dependency versions and add lint/type/coverage checks.
-4. Split the largest flight and report modules without changing behavior.
+4. Keep the 500-line module boundary enforced while prioritizing behavioral
+   tests over additional structural splitting.
 5. Keep future hardware and dynamic-obstacle work in a separate research scope.
 
 ## Release State

@@ -21,7 +21,7 @@ Python, PX4 SITL, Gazebo, MAVSDK, and grid-based A* planning.
 | Test environments | 5 coordinated Gazebo/A* maps, 5 safe destination presets per map, and map/target switching |
 | Evaluation | Structured telemetry, run manifests, plots, stage summaries, and cross-stage comparisons |
 | Reliability | Explicit failure codes, timeout-bounded runtime tasks, landing confirmation, PID-scoped cleanup, and parameter validation |
-| Developer experience | One modular `main.py` command center and 62 offline regression tests |
+| Developer experience | One modular `main.py` command center and 67 offline regression tests |
 
 ## Selected Engineering Contributions
 
@@ -178,7 +178,7 @@ python main.py check tests
 python main.py check all
 ```
 
-The current suite contains 62 offline tests covering CLI routing, map/target
+The current suite contains 67 offline tests covering CLI routing, map/target
 alignment, A* reachability, parameter safety, exit-code propagation, timeout
 behavior, landing confirmation, task presets, goal-marker synchronization, and
 active-replan validation. PX4/Gazebo flight validation remains a separate local
@@ -206,4 +206,4 @@ step and is not implied by a passing offline CI run.
   safety-buffer violations across 16 analyzed runs.
 - Improved maintainability and reliability through a unified modular CLI, 25
   validated target presets, bounded asynchronous cleanup, explicit failure
-  propagation, and 62 automated offline tests.
+  propagation, and 67 automated offline tests.

@@ -6,14 +6,55 @@
 # provides the world file required by this project's experiments.
 set -euo pipefail
 
-PROJECT_ROOT="${PROJECT_ROOT:-$HOME/projects/drone-ai}"
+CHECK_ONLY=false
+case "${1:-}" in
+  "") ;;
+  --check)
+    CHECK_ONLY=true
+    shift
+    ;;
+  -h|--help)
+    echo "Usage: bash scripts/flight/start_px4_substation.sh [--check]"
+    echo "  --check  Validate paths and dependencies without copying files or starting PX4."
+    exit 0
+    ;;
+  *)
+    echo "ERROR: unknown argument: $1" >&2
+    echo "Use --help for usage." >&2
+    exit 2
+    ;;
+esac
+if (( $# > 0 )); then
+  echo "ERROR: unexpected argument: $1" >&2
+  exit 2
+fi
+
+fail() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DETECTED_PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
+if [[ -n "${PROJECT_ROOT:-}" ]] && [[ "$PROJECT_ROOT" != "$DETECTED_PROJECT_ROOT" ]]; then
+  echo "WARNING: ignoring stale PROJECT_ROOT=$PROJECT_ROOT" >&2
+  echo "Using the repository that contains this launcher: $DETECTED_PROJECT_ROOT" >&2
+fi
+PROJECT_ROOT="$DETECTED_PROJECT_ROOT"
 PX4_ROOT="${PX4_ROOT:-$HOME/PX4-Autopilot}"
+
+[[ -d "$PROJECT_ROOT" ]] || fail "project root directory not found: $PROJECT_ROOT"
+PROJECT_ROOT="$(cd -- "$PROJECT_ROOT" && pwd)"
+[[ -f "$PROJECT_ROOT/main.py" ]] || fail \
+  "invalid PROJECT_ROOT (main.py not found): $PROJECT_ROOT"
+
 MAP_SWITCHER="$PROJECT_ROOT/scripts/maps/switch_map.py"
 TARGET_PREPARER="$PROJECT_ROOT/scripts/maps/prepare_selected_world.py"
 MAP_PYTHON="$PROJECT_ROOT/.venv/bin/python"
 if [[ ! -x "$MAP_PYTHON" ]]; then
-  MAP_PYTHON="$(command -v python3)"
+  MAP_PYTHON="$(command -v python3 || true)"
 fi
+[[ -n "$MAP_PYTHON" ]] || fail "Python 3 was not found. Create .venv or install python3."
 
 if [[ -z "${WORLD_NAME+x}" ]] && [[ -f "$MAP_SWITCHER" ]]; then
   MAP_ID="$("$MAP_PYTHON" "$MAP_SWITCHER" current --field id)"
@@ -27,6 +68,9 @@ else
   WORLD_SRC="${WORLD_SRC:-$PROJECT_ROOT/simulation/worlds/${WORLD_NAME}.sdf}"
   MODEL_SPAWN_POSE="${PX4_GZ_MODEL_POSE:--10,-10,0,0,0,0}"
 fi
+
+[[ "$WORLD_NAME" =~ ^[A-Za-z0-9_-]+$ ]] || fail \
+  "invalid world name '$WORLD_NAME'; use letters, numbers, underscores, or hyphens"
 
 WORLD_DST="$PX4_ROOT/Tools/simulation/gz/worlds/${WORLD_NAME}.sdf"
 RUNTIME_DIR="$PROJECT_ROOT/.runtime"
@@ -43,10 +87,20 @@ echo "World file:   $WORLD_SRC"
 echo "Model spawn:  $MODEL_SPAWN_POSE"
 echo
 
-if [[ ! -f "$WORLD_SRC" ]]; then
-  echo "ERROR: world file not found:"
-  echo "$WORLD_SRC"
-  exit 1
+[[ -f "$WORLD_SRC" ]] || fail "world file not found: $WORLD_SRC"
+[[ -d "$PX4_ROOT" ]] || fail "PX4 root directory not found: $PX4_ROOT"
+[[ -f "$PX4_ROOT/Makefile" ]] || fail "PX4 Makefile not found: $PX4_ROOT/Makefile"
+command -v make >/dev/null 2>&1 || fail "make command not found"
+command -v gz >/dev/null 2>&1 || fail "Gazebo 'gz' command not found"
+if [[ "$MAP_ID" != "custom" ]]; then
+  [[ -f "$TARGET_PREPARER" ]] || fail "target world preparer not found: $TARGET_PREPARER"
+  "$MAP_PYTHON" "$TARGET_PREPARER" --help >/dev/null || fail \
+    "target world preparer could not be loaded"
+fi
+
+if [[ "$CHECK_ONLY" == true ]]; then
+  echo "Preflight check passed. No files were copied and PX4 was not started."
+  exit 0
 fi
 
 mkdir -p "$RUNTIME_DIR"
@@ -114,6 +168,7 @@ if [[ "$MAP_ID" != "custom" ]] && [[ -f "$TARGET_PREPARER" ]]; then
     --output "$RUNTIME_WORLD"
   WORLD_COPY_SRC="$RUNTIME_WORLD"
 fi
+[[ -f "$WORLD_COPY_SRC" ]] || fail "prepared world file not found: $WORLD_COPY_SRC"
 cp "$WORLD_COPY_SRC" "$WORLD_DST"
 
 printf '%s\n' "$$" > "$PX4_PID_FILE"
